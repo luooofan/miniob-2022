@@ -33,6 +33,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/update_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
+#include "sql/operator/join_operator.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -405,32 +406,61 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
+// add yangjk b [select tables]
+RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op)
+{
+  std::list<Operator *> oper_store;
+  for (int i = 0; i < select_stmt->tables().size(); i++) {
+    Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+    if (nullptr == scan_oper) {
+      scan_oper = new TableScanOperator(select_stmt->tables()[i]);
+    }
+    oper_store.push_front(scan_oper);
+  }
+  while (oper_store.size() > 1) {
+    JoinOperator *join_oper = NULL;
+    Operator *left_oper = NULL;
+    Operator *right_oper = NULL;
+    left_oper = oper_store.front();
+    oper_store.pop_front();
+    right_oper = oper_store.front();
+    oper_store.pop_front();
+
+    join_oper = new JoinOperator(left_oper, right_oper);
+    oper_store.push_front(join_oper);
+  }
+  *result_op = oper_store.front();
+  return RC::SUCCESS;
+}
+// add yangjk e
 
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
-  if (select_stmt->tables().size() != 1) {
-    LOG_WARN("select more than 1 tables is not supported");
-    rc = RC::UNIMPLENMENT;
-    return rc;
+  // mod by yangjk b [select tables]
+  Operator *scan_oper = NULL;
+  if (select_stmt->tables().size() > 1) {
+    rc = do_join(select_stmt, &scan_oper);
+  } else {
+    scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+    if (nullptr == scan_oper) {
+      scan_oper = new TableScanOperator(select_stmt->tables()[0]);
+    }
   }
-
-  Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
-  if (nullptr == scan_oper) {
-    scan_oper = new TableScanOperator(select_stmt->tables()[0]);
-  }
-
   DEFER([&]() { delete scan_oper; });
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
-  for (const Field &field : select_stmt->query_fields()) {
-    project_oper.add_projection(field.table(), field.meta());
+  // mod by yangjk b [select tables]
+  auto &field = select_stmt->query_fields();
+  for (auto it = field.rbegin(); it != field.rend(); it++) {
+    project_oper.add_projection(it->table(), it->meta());
   }
+  // mod yangjk e
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
