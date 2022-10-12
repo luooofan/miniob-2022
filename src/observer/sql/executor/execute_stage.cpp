@@ -457,7 +457,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   project_oper.add_child(&pred_oper);
   // mod by yangjk b [select tables]
   auto &field = select_stmt->query_fields();
-  for (auto it = field.rbegin(); it != field.rend(); it++) {
+  for (auto it = field.begin(); it != field.end(); it++) {
     project_oper.add_projection(it->table(), it->meta());
   }
   // mod yangjk e

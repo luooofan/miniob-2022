@@ -21,7 +21,7 @@ See the Mulan PSL v2 for more details. */
 // TODO fixme
 class JoinOperator : public Operator {
 public:
-  JoinOperator(Operator *left, Operator *right): left_(left), right_(right)
+  JoinOperator(Operator *left, Operator *right) : left_(left), right_(right)
   {}
 
   virtual ~JoinOperator() = default;
@@ -30,10 +30,11 @@ public:
   RC next() override;
   RC close() override;
 
-  Tuple * current_tuple() override ;
+  Tuple *current_tuple() override;
 
 private:
   Operator *left_ = nullptr;
   Operator *right_ = nullptr;
   JoinedTuple tuple_;
+  bool is_first_ = true;
 };
