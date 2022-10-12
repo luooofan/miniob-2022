@@ -439,10 +439,12 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SelectStmt *select_stmt = (SelectStmt *)(sql_event->stmt());
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
+  bool is_single_table = true;
   // mod by yangjk b [select tables]
   Operator *scan_oper = NULL;
   if (select_stmt->tables().size() > 1) {
     rc = do_join(select_stmt, &scan_oper);
+    is_single_table = false;
   } else {
     scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
     if (nullptr == scan_oper) {
@@ -458,7 +460,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   // mod by yangjk b [select tables]
   auto &field = select_stmt->query_fields();
   for (auto it = field.begin(); it != field.end(); it++) {
-    project_oper.add_projection(it->table(), it->meta());
+    project_oper.add_projection(it->table(), it->meta(), is_single_table);
   }
   // mod yangjk e
   rc = project_oper.open();

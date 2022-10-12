@@ -50,19 +50,19 @@ Tuple *ProjectOperator::current_tuple()
   return &tuple_;
 }
 
-void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta)
+void ProjectOperator::add_projection(const Table *table, const FieldMeta *field_meta, bool is_single_table)
 {
   // 对单表来说，展示的(alias) 字段总是字段名称，
   // 对多表查询来说，展示的alias 需要带表名字
   TupleCellSpec *spec = new TupleCellSpec(new FieldExpr(table, field_meta));
-  // add yangjk b [select tables]
-  // std::string table_name(table->name());
-  // std::string field_name(field_meta->name());
-  // std::string tmp_spec_alias(table_name + '.' +field_name);
-  auto spec_alias = std::make_shared<std::string>(std::string(table->name()) + '.' + std::string(field_meta->name()));
-  // const char* spec_alias = tmp_spec_alias.c_str();
+  std::string alias_name;
+  if (!is_single_table) {
+    alias_name = std::string(table->name()) + '.' + std::string(field_meta->name());
+  } else {
+    alias_name = std::string(field_meta->name());
+  }
+  auto spec_alias = std::make_shared<std::string>(alias_name);
   spec->set_alias(spec_alias);
-  // add yangjk e
   tuple_.add_cell_spec(spec);
 }
 
