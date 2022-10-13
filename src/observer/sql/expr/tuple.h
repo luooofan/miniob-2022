@@ -81,6 +81,8 @@ public:
   virtual RC find_cell(const Field &field, TupleCell &cell) const = 0;
 
   virtual RC cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
+
+  virtual void get_record(CompoundRecord &record) const = 0;
 };
 
 class RowTuple : public Tuple {
@@ -167,6 +169,11 @@ public:
     return *record_;
   }
 
+  void get_record(CompoundRecord &record) const override
+  {
+    record.emplace_back(record_);
+  }
+
 private:
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
@@ -236,6 +243,11 @@ public:
     return RC::SUCCESS;
   }
 
+  void get_record(CompoundRecord &record) const override
+  {
+    tuple_->get_record(record);
+  }
+
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple *tuple_ = nullptr;
@@ -267,17 +279,26 @@ public:
     return tuples_;
   }
 
-  void set_record(const std::vector<Record *> &records)
+  void set_right_record(const CompoundRecord &record)
   {
-    assert(tuples_.size() == records.size());
+    assert(tuples_.size() > record.size());
+    auto tup_rit = tuples_.rbegin();
+    auto rcd_rit = record.rbegin();
+    for (; rcd_rit != record.rend(); ++tup_rit, ++rcd_rit) {
+      (*tup_rit)->set_record(*rcd_rit);
+    }
+  }
+  void set_record(const CompoundRecord &record)
+  {
+    assert(tuples_.size() == record.size());
     auto tup_it = tuples_.begin();
-    auto rcd_it = records.begin();
-    for (; tup_it != tuples_.end(); ++tup_it, ++rcd_it++) {
+    auto rcd_it = record.begin();
+    for (; tup_it != tuples_.end(); ++tup_it, ++rcd_it) {
       (*tup_it)->set_record(*rcd_it);
     }
   }
 
-  virtual int cell_num() const
+  int cell_num() const override
   {
     int num = 0;
     for (auto tup : tuples_) {
@@ -285,7 +306,7 @@ public:
     }
     return num;
   }
-  virtual RC cell_at(int index, TupleCell &cell) const
+  RC cell_at(int index, TupleCell &cell) const override
   {
     Tuple *tuple = nullptr;
     int real_index = -1;
@@ -295,7 +316,7 @@ public:
     }
     return tuple->cell_at(real_index, cell);
   }
-  virtual RC find_cell(const Field &field, TupleCell &cell) const
+  RC find_cell(const Field &field, TupleCell &cell) const override
   {
     for (auto tup : tuples_) {
       if (RC::SUCCESS == tup->find_cell(field, cell)) {
@@ -305,7 +326,7 @@ public:
     return RC::NOTFOUND;
   }
 
-  virtual RC cell_spec_at(int index, const TupleCellSpec *&spec) const
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {
     Tuple *tuple = nullptr;
     int real_index = -1;
@@ -314,6 +335,13 @@ public:
       return rc;
     }
     return tuple->cell_spec_at(real_index, spec);
+  }
+
+  void get_record(CompoundRecord &record) const override
+  {
+    for (auto tup : tuples_) {
+      tup->get_record(record);
+    }
   }
 
 private:

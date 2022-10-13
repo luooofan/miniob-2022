@@ -407,7 +407,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   return oper;
 }
 // add yangjk b [select tables]
-RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op)
+RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers)
 {
   std::list<Operator *> oper_store;
   for (int i = 0; i < select_stmt->tables().size(); i++) {
@@ -416,6 +416,7 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op)
       scan_oper = new TableScanOperator(select_stmt->tables()[i]);
     }
     oper_store.push_front(scan_oper);
+    delete_opers.push_back(scan_oper);
   }
   while (oper_store.size() > 1) {
     JoinOperator *join_oper = NULL;
@@ -441,17 +442,26 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   RC rc = RC::SUCCESS;
   bool is_single_table = true;
   // mod by yangjk b [select tables]
+  std::vector<Operator *> delete_opers;
   Operator *scan_oper = NULL;
   if (select_stmt->tables().size() > 1) {
-    rc = do_join(select_stmt, &scan_oper);
+    rc = do_join(select_stmt, &scan_oper, delete_opers);
     is_single_table = false;
   } else {
     scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[0]);
     }
+    delete_opers.push_back(scan_oper);
   }
-  DEFER([&]() { delete scan_oper; });
+  // mod yangjk e
+
+  //  DEFER([&] () {delete scan_oper;});
+  DEFER([&]() {
+    for (auto oper : delete_opers) {
+      delete oper;
+    }
+  });
 
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(scan_oper);
