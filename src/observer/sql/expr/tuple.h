@@ -82,7 +82,16 @@ public:
 
   virtual RC cell_spec_at(int index, const TupleCellSpec *&spec) const = 0;
 
+  // push back records of the tuple to arg:record
   virtual void get_record(CompoundRecord &record) const = 0;
+
+  // this func will set all records
+  // invoke this func will erase begin arg:record
+  virtual void set_record(CompoundRecord &record) = 0;
+
+  // this will not set all records
+  // invoke this func will erase end arg:record
+  virtual void set_right_record(CompoundRecord &record) = 0;
 };
 
 class RowTuple : public Tuple {
@@ -94,6 +103,19 @@ public:
       delete spec;
     }
     speces_.clear();
+  }
+
+  void set_record(CompoundRecord &record) override
+  {
+    assert(record.size() >= 1);
+    this->record_ = record.front();
+    record.erase(record.begin());
+  }
+
+  void set_right_record(CompoundRecord &record) override
+  {
+    assert(!record.empty());
+    set_record(record);
   }
 
   void set_record(Record *record)
@@ -234,6 +256,7 @@ public:
   {
     return tuple_->find_cell(field, cell);
   }
+
   RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
   {
     if (index < 0 || index >= static_cast<int>(speces_.size())) {
@@ -248,6 +271,16 @@ public:
     tuple_->get_record(record);
   }
 
+  void set_record(CompoundRecord &record) override
+  {
+    tuple_->set_record(record);
+  }
+
+  void set_right_record(CompoundRecord &record) override
+  {
+    tuple_->set_right_record(record);
+  }
+
 private:
   std::vector<TupleCellSpec *> speces_;
   Tuple *tuple_ = nullptr;
@@ -256,118 +289,73 @@ private:
 class CompoundTuple : public Tuple {
 public:
   CompoundTuple() = default;
-  CompoundTuple(Tuple *left, Tuple *right)
-  {
-    init(left, right);
-  }
+  CompoundTuple(Tuple *left, Tuple *right) : left_tup_(left), right_tup_(right)
+  {}
   virtual ~CompoundTuple() = default;
 
   void init(Tuple *left, Tuple *right)
   {
-    auto fill_tuples = [this](Tuple *tup) {
-      RowTuple *rtup = nullptr;
-      CompoundTuple *ctup = nullptr;
-      if (nullptr != (rtup = dynamic_cast<RowTuple *>(tup))) {
-        tuples_.push_back(rtup);
-      } else if (nullptr != (ctup = dynamic_cast<CompoundTuple *>(tup))) {
-        auto tups = ctup->get_tuples();
-        tuples_.insert(tuples_.end(), tups.begin(), tups.end());
-      }
-    };
-    fill_tuples(left);
-    fill_tuples(right);
+    left_tup_ = left;
+    right_tup_ = right;
   }
 
-  const std::vector<RowTuple *> &get_tuples() const
+  void set_right_record(CompoundRecord &record) override
   {
-    return tuples_;
+    right_tup_->set_right_record(record);
+    assert(record.empty());
   }
 
-  void set_right_record(const CompoundRecord &record)
+  void set_record(CompoundRecord &record) override
   {
-    assert(tuples_.size() > record.size());
-    auto tup_rit = tuples_.rbegin();
-    auto rcd_rit = record.rbegin();
-    for (; rcd_rit != record.rend(); ++tup_rit, ++rcd_rit) {
-      (*tup_rit)->set_record(*rcd_rit);
-    }
-  }
-
-  void set_record(const CompoundRecord &record)
-  {
-    assert(tuples_.size() == record.size());
-    auto tup_it = tuples_.begin();
-    auto rcd_it = record.begin();
-    for (; tup_it != tuples_.end(); ++tup_it, ++rcd_it) {
-      (*tup_it)->set_record(*rcd_it);
-    }
+    left_tup_->set_record(record);
+    right_tup_->set_record(record);
   }
 
   int cell_num() const override
   {
-    int num = 0;
-    for (auto tup : tuples_) {
-      num += tup->cell_num();
-    }
-    return num;
+    return left_tup_->cell_num() + right_tup_->cell_num();
+    ;
   }
 
   RC cell_at(int index, TupleCell &cell) const override
   {
-    Tuple *tuple = nullptr;
-    int real_index = -1;
-    RC rc = find_tuple_and_index(index, tuple, real_index);
-    if (RC::SUCCESS != rc) {
-      return rc;
+    if (index < 0 || index >= cell_num()) {
+      return RC::INVALID_ARGUMENT;
     }
-    return tuple->cell_at(real_index, cell);
+    int num = left_tup_->cell_num();
+    if (index < num) {
+      return left_tup_->cell_at(index, cell);
+    }
+    return right_tup_->cell_at(index - num, cell);
   }
 
   RC find_cell(const Field &field, TupleCell &cell) const override
   {
-    for (auto tup : tuples_) {
-      if (RC::SUCCESS == tup->find_cell(field, cell)) {
-        return RC::SUCCESS;
-      }
-    }
-    return RC::NOTFOUND;
-  }
-
-  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
-  {
-    Tuple *tuple = nullptr;
-    int real_index = -1;
-    RC rc = find_tuple_and_index(index, tuple, real_index);
-    if (RC::SUCCESS != rc) {
-      return rc;
-    }
-    return tuple->cell_spec_at(real_index, spec);
-  }
-
-  void get_record(CompoundRecord &record) const override
-  {
-    for (auto tup : tuples_) {
-      tup->get_record(record);
-    }
-  }
-
-private:
-  RC find_tuple_and_index(int index, Tuple *&tuple, int &real_index) const
-  {
-    if (index < 0 || index >= cell_num()) {
-      return RC::INVALID_ARGUMENT;
-    }
-    int idx = 0;
-    for (auto tup : tuples_) {
-      if (idx + tup->cell_num() >= index) {
-        tuple = tup;
-        real_index = index - idx;
-      }
-      idx += tup->cell_num();
+    if (RC::SUCCESS != left_tup_->find_cell(field, cell)) {
+      return right_tup_->find_cell(field, cell);
     }
     return RC::SUCCESS;
   }
 
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= cell_num()) {
+      return RC::INVALID_ARGUMENT;
+    }
+    int num = left_tup_->cell_num();
+    if (index < num) {
+      return left_tup_->cell_spec_at(index, spec);
+    }
+    return right_tup_->cell_spec_at(index - num, spec);
+  }
+
+  void get_record(CompoundRecord &record) const override
+  {
+    left_tup_->get_record(record);
+    right_tup_->get_record(record);
+  }
+
 private:
-  std::vector<RowTuple *> tuples_;
+  Tuple *left_tup_;
+  Tuple *right_tup_;
 };
