@@ -253,27 +253,31 @@ private:
   Tuple *tuple_ = nullptr;
 };
 
-class JoinedTuple : public Tuple {
+class CompoundTuple : public Tuple {
 public:
-  JoinedTuple() = default;
-  JoinedTuple(Tuple *left, Tuple *right)
+  CompoundTuple() = default;
+  CompoundTuple(Tuple *left, Tuple *right)
   {
     init(left, right);
   }
+  virtual ~CompoundTuple() = default;
+
   void init(Tuple *left, Tuple *right)
   {
-    RowTuple *rtup = nullptr;
-    JoinedTuple *jtup = nullptr;
-    if (nullptr != (rtup = dynamic_cast<RowTuple *>(left))) {
-      tuples_.push_back(rtup);
-    } else if (nullptr != (jtup = dynamic_cast<JoinedTuple *>(left))) {
-      auto tups = jtup->get_tuples();
-      tuples_.insert(tuples_.end(), tups.begin(), tups.end());
-    }
-    assert(nullptr != (rtup = dynamic_cast<RowTuple *>(right)));
-    tuples_.emplace_back(rtup);
+    auto fill_tuples = [this](Tuple *tup) {
+      RowTuple *rtup = nullptr;
+      CompoundTuple *ctup = nullptr;
+      if (nullptr != (rtup = dynamic_cast<RowTuple *>(tup))) {
+        tuples_.push_back(rtup);
+      } else if (nullptr != (ctup = dynamic_cast<CompoundTuple *>(tup))) {
+        auto tups = ctup->get_tuples();
+        tuples_.insert(tuples_.end(), tups.begin(), tups.end());
+      }
+    };
+    fill_tuples(left);
+    fill_tuples(right);
   }
-  virtual ~JoinedTuple() = default;
+
   const std::vector<RowTuple *> &get_tuples() const
   {
     return tuples_;
@@ -288,6 +292,7 @@ public:
       (*tup_rit)->set_record(*rcd_rit);
     }
   }
+
   void set_record(const CompoundRecord &record)
   {
     assert(tuples_.size() == record.size());
@@ -306,6 +311,7 @@ public:
     }
     return num;
   }
+
   RC cell_at(int index, TupleCell &cell) const override
   {
     Tuple *tuple = nullptr;
@@ -316,6 +322,7 @@ public:
     }
     return tuple->cell_at(real_index, cell);
   }
+
   RC find_cell(const Field &field, TupleCell &cell) const override
   {
     for (auto tup : tuples_) {

@@ -50,7 +50,7 @@ private:
 private:
   Operator *left_ = nullptr;
   Operator *right_ = nullptr;
-  JoinedTuple tuple_;
+  CompoundTuple tuple_;
   bool is_first_ = true;
 
   std::vector<CompoundRecord>::iterator rht_it_;

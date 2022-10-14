@@ -410,7 +410,7 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
 RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers)
 {
   std::list<Operator *> oper_store;
-  for (int i = 0; i < select_stmt->tables().size(); i++) {
+  for (std::vector<Table*>::size_type i = 0; i < select_stmt->tables().size(); i++) {
     Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[i]);
