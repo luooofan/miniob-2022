@@ -12,9 +12,12 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Longda on 2021/4/13.
 //
 
+#include <memory>
 #include <string>
 #include <sstream>
+#include <vector>
 
+#include "common/defs.h"
 #include "execute_stage.h"
 
 #include "common/io/io.h"
@@ -26,7 +29,9 @@ See the Mulan PSL v2 for more details. */
 #include "event/storage_event.h"
 #include "event/sql_event.h"
 #include "event/session_event.h"
+#include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
@@ -49,6 +54,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/clog/clog.h"
 
 using namespace common;
+
+typedef std::vector<FilterUnit *> FilterUnits;
 
 // RC create_selection_executor(
 //   Trx *trx, const Selects &selects, const char *db, const char *table_name, SelectExeNode &select_node);
@@ -272,9 +279,8 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
   }
 }
 
-IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
+IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_units)
 {
-  const std::vector<FilterUnit *> &filter_units = filter_stmt->filter_units();
   if (filter_units.empty()) {
     return nullptr;
   }
@@ -407,21 +413,53 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   return oper;
 }
 
+std::unordered_map<Table *, std::unique_ptr<FilterUnits>> split_filters(
+    const std::vector<Table *> &tables, FilterStmt *filter_stmt)
+{
+  std::unordered_map<Table *, std::unique_ptr<FilterUnits>> res;
+  for (auto table : tables) {
+    res[table] = std::make_unique<FilterUnits>();
+  }
+  for (auto filter : filter_stmt->filter_units()) {
+    Expression *left = filter->left();
+    Expression *right = filter->right();
+    if (ExprType::FIELD == left->type() && ExprType::VALUE == right->type()) {
+    } else if (ExprType::FIELD == right->type() && ExprType::VALUE == left->type()) {
+      std::swap(left, right);
+    } else {
+      continue;
+    }
+    // TODO: NEED TO CONSIDER SUB_QUERY
+    // only support FILED comp VALUE or VALUE comp FILED now
+    assert(ExprType::FIELD == left->type() && ExprType::VALUE == right->type());
+    auto &left_filed_expr = *static_cast<FieldExpr *>(left);
+    const Field &field = left_filed_expr.field();
+    res[const_cast<Table *>(field.table())]->emplace_back(filter);
+  }
+  return res;
+}
+
 RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers)
 {
   std::list<Operator *> oper_store;
-  for (size_t i = 0; i < select_stmt->tables().size(); i++) {
-    Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
-    if (nullptr == scan_oper) {
-      scan_oper = new TableScanOperator(select_stmt->tables()[i]);
+  {
+    const auto &tables = select_stmt->tables();
+    FilterStmt *filter_stmt = select_stmt->filter_stmt();
+    auto table_filters_ht = split_filters(tables, filter_stmt);
+    for (std::vector<Table *>::size_type i = 0; i < tables.size(); i++) {
+      Operator *scan_oper = try_to_create_index_scan_operator(*table_filters_ht[tables[i]]);
+      if (nullptr == scan_oper) {
+        scan_oper = new TableScanOperator(tables[i]);
+      }
+      oper_store.push_front(scan_oper);
+      delete_opers.push_back(scan_oper);
     }
-    oper_store.push_front(scan_oper);
-    delete_opers.push_back(scan_oper);
   }
   while (oper_store.size() > 1) {
     JoinOperator *join_oper = NULL;
     Operator *left_oper = NULL;
     Operator *right_oper = NULL;
+
     left_oper = oper_store.front();
     oper_store.pop_front();
     right_oper = oper_store.front();
@@ -446,7 +484,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = do_join(select_stmt, &scan_oper, delete_opers);
     is_single_table = false;
   } else {
-    scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
+    scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[0]);
     }
