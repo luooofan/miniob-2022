@@ -22,6 +22,7 @@ See the Mulan PSL v2 for more details. */
 
 class FieldMeta;
 class FilterStmt;
+class OrderByStmt;
 class Db;
 class Table;
 class Expression;
@@ -52,6 +53,10 @@ public:
   {
     return filter_stmt_;
   }
+  OrderByStmt *orderby_stmt() const
+  {
+    return orderby_stmt_;
+  }
 
 private:
   // own these expression
@@ -59,4 +64,5 @@ private:
 
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
+  OrderByStmt *orderby_stmt_ = nullptr;
 };

@@ -68,6 +68,36 @@ public:
     return attr_type_;
   }
 
+  bool operator==(const TupleCell &other) const
+  {
+    return 0 == compare(other);
+  }
+
+  bool operator!=(const TupleCell &other) const
+  {
+    return 0 != compare(other);
+  }
+
+  bool operator<(const TupleCell &other) const
+  {
+    return 0 > compare(other);
+  }
+
+  bool operator<=(const TupleCell &other) const
+  {
+    return 0 >= compare(other);
+  }
+
+  bool operator>(const TupleCell &other) const
+  {
+    return 0 < compare(other);
+  }
+
+  bool operator>=(const TupleCell &other) const
+  {
+    return 0 <= compare(other);
+  }
+
 private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = -1;

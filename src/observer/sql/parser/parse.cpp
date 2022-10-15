@@ -255,6 +255,17 @@ void value_destroy(Value *value)
   value->data = nullptr;
 }
 
+void orderby_destroy(OrderBy *orderby)
+{
+  relation_attr_destroy(&orderby->sort_attr);
+}
+
+void orderby_init(OrderBy *orderby, int is_asc, RelAttr *attr)
+{
+  orderby->sort_attr = *attr;
+  orderby->is_asc = is_asc;
+}
+
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length)
 {
   attr_info->name = strdup(name);
@@ -293,6 +304,15 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
   selects->condition_num = condition_num;
 }
 
+void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num)
+{
+  assert(orderby_num <= sizeof(selects->orderbys) / sizeof(selects->orderbys[0]));
+  for (size_t i = 0; i < orderby_num; i++) {
+    selects->orderbys[i] = orderbys[i];
+  }
+  selects->orderby_num = orderby_num;
+}
+
 void selects_destroy(Selects *selects)
 {
   for (size_t i = 0; i < selects->attr_num; i++) {
@@ -310,10 +330,16 @@ void selects_destroy(Selects *selects)
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+
   for (size_t i = 0; i < selects->project_num; i++) {
     projectcol_destroy(&selects->projects[i]);
   }
   selects->project_num = 0;
+
+  for (size_t i = 0; i < selects->orderby_num; i++) {
+    orderby_destroy(&selects->orderbys[i]);
+  }
+  selects->orderby_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)

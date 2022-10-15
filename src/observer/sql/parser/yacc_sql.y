@@ -10,14 +10,19 @@
 #include<stdlib.h>
 #include<string.h>
 
+#define TRUE 1
+#define FALSE 0
+
 typedef struct ParserContext {
   Query * ssql;
   size_t select_length;
   size_t condition_length;
+  size_t orderby_length;
   size_t from_length;
   size_t value_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
+  OrderBy orderbys[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -50,6 +55,7 @@ void yyerror(yyscan_t scanner, const char *str)
   query_reset(context->ssql);
   context->ssql->flag = SCF_ERROR;
   context->condition_length = 0;
+  context->orderby_length = 0;
   context->from_length = 0;
   context->select_length = 0;
   context->value_length = 0;
@@ -81,6 +87,7 @@ ParserContext *get_context(yyscan_t scanner)
         JOIN
         SELECT
         DESC
+		ASC
         SHOW
         SYNC
         INSERT
@@ -96,6 +103,8 @@ ParserContext *get_context(yyscan_t scanner)
         STRING_T
 				DATE_T
         FLOAT_T
+		ORDER
+		BY
         HELP
         EXIT
         DOT //QUOTE
@@ -509,17 +518,20 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where SEMICOLON
+    SELECT select_attr FROM ID rel_list where opt_order_by SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 
+			selects_append_orderbys(&CONTEXT->ssql->sstr.selection, CONTEXT->orderbys, CONTEXT->orderby_length);
+
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
+			CONTEXT->orderby_length=0;
 			CONTEXT->condition_length=0;
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
@@ -606,6 +618,80 @@ comOp:
     | LIKE { CONTEXT->comp = LIKE_OP; }
     | NOT LIKE { CONTEXT->comp = NOT_LIKE_OP; }
     ;
+sort_unit:
+	ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DOT ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DESC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, FALSE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID ASC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DOT ID DESC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, FALSE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+		printf("hhh\n");
+	}
+	|
+	ID DOT ID ASC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+		printf("hhh\n");
+	}
+	;
+sort_list:
+	sort_unit COMMA sort_list
+		{
+			
+	}
+	| sort_unit
+		{
+			
+	}
+	;
+opt_order_by:
+	/* empty */
+	| ORDER BY sort_list
+		{
+
+	}
+	;
 
 load_data:
 		LOAD DATA INFILE SSS INTO TABLE ID SEMICOLON

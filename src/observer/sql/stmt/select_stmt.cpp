@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
+#include "sql/stmt/orderby_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
@@ -179,12 +180,19 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     LOG_WARN("cannot construct filter stmt");
     return rc;
   }
+  OrderByStmt *orderby_stmt = nullptr;
+  rc = OrderByStmt::create(db, default_table, &table_map, select_sql.orderbys, select_sql.orderby_num, orderby_stmt);
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("cannot construct order by stmt");
+    return rc;
+  }
 
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->projects_.swap(projects);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->orderby_stmt_ = orderby_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

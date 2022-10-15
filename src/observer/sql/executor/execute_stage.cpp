@@ -40,6 +40,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
 #include "sql/operator/join_operator.h"
+#include "sql/operator/sort_operator.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -481,6 +482,7 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
 
     join_oper = new JoinOperator(left_oper, right_oper);
     oper_store.push_front(join_oper);
+    delete_opers.push_back(join_oper);
 
     // get proper filter unit. then add to join_oper
     for (auto it = filter_units.begin(); it != filter_units.end();) {
@@ -506,6 +508,7 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
       }
     }
   }
+
   *result_op = oper_store.front();
   return RC::SUCCESS;
 }
@@ -535,14 +538,23 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     }
   });
 
+  Operator *top_op = scan_oper;
   PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(scan_oper);
+  pred_oper.add_child(top_op);
+  top_op = &pred_oper;
+  SortOperator sort_oper(select_stmt->orderby_stmt());
+  if (nullptr != select_stmt->orderby_stmt()) {
+    sort_oper.add_child(top_op);
+    top_op = &sort_oper;
+  }
   ProjectOperator project_oper;
-  project_oper.add_child(&pred_oper);
+  project_oper.add_child(top_op);
+  top_op = &project_oper;
   auto &projects = select_stmt->projects();
   for (auto it = projects.begin(); it != projects.end(); it++) {
     project_oper.add_projection(*it, is_single_table);
   }
+
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
