@@ -125,4 +125,4 @@ private:
   char *data_ = nullptr;
 };
 
-typedef std::vector<Record*> CompoundRecord;
+typedef std::vector<Record *> CompoundRecord;

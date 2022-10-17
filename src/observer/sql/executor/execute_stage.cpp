@@ -406,11 +406,11 @@ IndexScanOperator *try_to_create_index_scan_operator(FilterStmt *filter_stmt)
   LOG_INFO("use index for scan: %s in table %s", index->index_meta().name(), table->name());
   return oper;
 }
-// add yangjk b [select tables]
+
 RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers)
 {
   std::list<Operator *> oper_store;
-  for (std::vector<Table*>::size_type i = 0; i < select_stmt->tables().size(); i++) {
+  for (size_t i = 0; i < select_stmt->tables().size(); i++) {
     Operator *scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt());
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[i]);
@@ -433,7 +433,6 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
   *result_op = oper_store.front();
   return RC::SUCCESS;
 }
-// add yangjk e
 
 RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 {
@@ -441,7 +440,6 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   SessionEvent *session_event = sql_event->session_event();
   RC rc = RC::SUCCESS;
   bool is_single_table = true;
-  // mod by yangjk b [select tables]
   std::vector<Operator *> delete_opers;
   Operator *scan_oper = NULL;
   if (select_stmt->tables().size() > 1) {
@@ -454,9 +452,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     }
     delete_opers.push_back(scan_oper);
   }
-  // mod yangjk e
 
-  //  DEFER([&] () {delete scan_oper;});
   DEFER([&]() {
     for (auto oper : delete_opers) {
       delete oper;
@@ -467,12 +463,10 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
-  // mod by yangjk b [select tables]
   auto &field = select_stmt->query_fields();
   for (auto it = field.begin(); it != field.end(); it++) {
     project_oper.add_projection(it->table(), it->meta(), is_single_table);
   }
-  // mod yangjk e
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
