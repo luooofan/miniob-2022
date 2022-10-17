@@ -7,6 +7,7 @@ cmake-build-*/*
 .DS_Store
 .idea
 .ccls-cache
+.cache
 compile_commands.json
 ./.name
 ./miniob.iml
@@ -16,4 +17,9 @@ compile_commands.json
 GRTAGS
 GPATH
 GTAGS
+/db
+/deps
+/src/observer/.vscode/*
+result_tmp/
+miniob_data_test/
 #*#

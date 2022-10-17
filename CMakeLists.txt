@@ -1,3 +1,4 @@
+include(clang_check.cmake)
 # include 另外一个cmake 配置
 #INCLUDE(file1 [OPTIONAL])
 

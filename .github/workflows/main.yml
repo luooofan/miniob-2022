@@ -1,0 +1,17 @@
+name: test
+run-name: ${{ github.actor }} is testing
+on:
+  pull_request:
+    branches:
+    - main
+  push:
+    branches:
+    - main
+    - release/*
+jobs:
+  build_and_test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v3
+      - run: pwd
+      - run: bash ./build_test.sh test
