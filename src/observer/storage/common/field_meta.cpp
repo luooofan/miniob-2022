@@ -24,7 +24,7 @@ const static Json::StaticString FIELD_OFFSET("offset");
 const static Json::StaticString FIELD_LEN("len");
 const static Json::StaticString FIELD_VISIBLE("visible");
 
-const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "floats"};
+const char *ATTR_TYPE_NAME[] = {"undefined", "chars", "ints", "date", "floats"};
 
 const char *attr_type_to_string(AttrType type)
 {
