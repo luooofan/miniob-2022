@@ -38,7 +38,8 @@ Table::~Table()
   }
 
   if (data_buffer_pool_ != nullptr) {
-    data_buffer_pool_->close_file();
+    BufferPoolManager::instance().close_file(table_data_file(base_dir_.c_str(), name()).c_str());
+    // data_buffer_pool_->close_file();
     data_buffer_pool_ = nullptr;
   }
 
@@ -145,14 +146,13 @@ RC Table::remove(const char *name)
   delete record_handler_;
   record_handler_ = nullptr;
 
+  std::string data_file = table_data_file(base_dir_.c_str(), name);
   assert(nullptr != data_buffer_pool_);
-  data_buffer_pool_->close_file();
-  // NOTE: WE CAN NOT DELETE DiskBufferPool. THIS WILL CAUSE DOUBLE FREE.
-  // delete data_buffer_pool_;
+  BufferPoolManager::instance().close_file(data_file.c_str());
+  // NOTE: after bpm.close_file, the dbp has been released
   data_buffer_pool_ = nullptr;
 
   // remove the data file
-  std::string data_file = table_data_file(base_dir_.c_str(), name);
   if (0 != ::unlink(data_file.c_str())) {
     LOG_ERROR("Delete data file failed. filename=%s, errmsg=%d:%s", data_file.c_str(), errno, strerror(errno));
     return RC::IOERR;

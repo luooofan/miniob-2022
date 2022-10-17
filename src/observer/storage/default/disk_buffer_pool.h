@@ -224,6 +224,7 @@ private:
 class DiskBufferPool {
 public:
   DiskBufferPool(BufferPoolManager &bp_manager, BPFrameManager &frame_manager);
+  // NOTE HERE: DO NOT DELETE THIS. INVOKE bpm.close_file().
   ~DiskBufferPool();
 
   /**
