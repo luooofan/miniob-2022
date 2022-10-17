@@ -684,6 +684,7 @@ RC BufferPoolManager::close_file(const char *_file_name)
 
   DiskBufferPool *bp = iter->second;
   buffer_pools_.erase(iter);
+
   delete bp;
   return RC::SUCCESS;
 }

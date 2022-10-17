@@ -94,6 +94,11 @@ public:
   ~Trx();
 
 public:
+  // delete all operations on table
+  // the func will be invoked when drop table
+  void delete_table(Table *table);
+
+public:
   RC insert_record(Table *table, Record *record);
   RC delete_record(Table *table, Record *record);
 

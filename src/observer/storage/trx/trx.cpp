@@ -79,6 +79,7 @@ RC Trx::insert_record(Table *table, Record *record)
   // 先校验是否以前是否存在过(应该不会存在)
   Operation *old_oper = find_operation(table, record->rid());
   if (old_oper != nullptr) {
+    LOG_INFO("The last operation for table: %d", old_oper->type());
     if (old_oper->type() == Operation::Type::DELETE) {
       delete_operation(table, record->rid());
     } else {
@@ -281,4 +282,8 @@ void Trx::start_if_not_started()
   if (trx_id_ == 0) {
     trx_id_ = next_trx_id();
   }
+}
+void Trx::delete_table(Table *table)
+{
+  operations_.erase(table);
 }

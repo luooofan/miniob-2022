@@ -56,6 +56,13 @@ public:
    */
   RC open(const char *meta_file, const char *base_dir, CLogManager *clog_manager);
 
+  /**
+   * remove a table
+   * @param path the full path of table meta file (/path/to/table_name.table)
+   * @param name the name of table to be removed
+   */
+  RC remove(const char *name);
+
   RC insert_record(Trx *trx, int value_num, const Value *values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
