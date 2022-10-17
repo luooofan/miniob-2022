@@ -14,6 +14,7 @@ mkdir -p build
 pushd build
 # make clean
 cmake .. -DDEBUG=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+make format
 make -j8
 popd
 

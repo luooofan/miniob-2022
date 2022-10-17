@@ -18,22 +18,31 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
 
-class TupleCell
-{
-public: 
+class TupleCell {
+public:
   TupleCell() = default;
-  
-  TupleCell(FieldMeta *meta, char *data)
-    : TupleCell(meta->type(), data)
+
+  TupleCell(FieldMeta *meta, char *data) : TupleCell(meta->type(), data)
   {}
-  TupleCell(AttrType attr_type, char *data)
-    : attr_type_(attr_type), data_(data)
+  TupleCell(AttrType attr_type, char *data) : attr_type_(attr_type), data_(data)
   {}
 
-  void set_type(AttrType type) { this->attr_type_ = type; }
-  void set_length(int length) { this->length_ = length; }
-  void set_data(char *data) { this->data_ = data; }
-  void set_data(const char *data) { this->set_data(const_cast<char *>(data)); }
+  void set_type(AttrType type)
+  {
+    this->attr_type_ = type;
+  }
+  void set_length(int length)
+  {
+    this->length_ = length;
+  }
+  void set_data(char *data)
+  {
+    this->data_ = data;
+  }
+  void set_data(const char *data)
+  {
+    this->set_data(const_cast<char *>(data));
+  }
 
   void to_string(std::ostream &os) const;
 
@@ -44,7 +53,10 @@ public:
     return data_;
   }
 
-  int length() const { return length_; }
+  int length() const
+  {
+    return length_;
+  }
 
   AttrType attr_type() const
   {
@@ -54,5 +66,5 @@ public:
 private:
   AttrType attr_type_ = UNDEFINED;
   int length_ = -1;
-  char *data_ = nullptr; // real data. no need to move to field_meta.offset
+  char *data_ = nullptr;  // real data. no need to move to field_meta.offset
 };

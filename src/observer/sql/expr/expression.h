@@ -26,18 +26,16 @@ enum class ExprType {
   VALUE,
 };
 
-class Expression
-{
-public: 
+class Expression {
+public:
   Expression() = default;
   virtual ~Expression() = default;
-  
+
   virtual RC get_value(const Tuple &tuple, TupleCell &cell) const = 0;
   virtual ExprType type() const = 0;
 };
 
-class FieldExpr : public Expression
-{
+class FieldExpr : public Expression {
 public:
   FieldExpr() = default;
   FieldExpr(const Table *table, const FieldMeta *field) : field_(table, field)
@@ -71,12 +69,12 @@ public:
   }
 
   RC get_value(const Tuple &tuple, TupleCell &cell) const override;
+
 private:
   Field field_;
 };
 
-class ValueExpr : public Expression
-{
+class ValueExpr : public Expression {
 public:
   ValueExpr() = default;
   ValueExpr(const Value &value) : tuple_cell_(value.type, (char *)value.data)
@@ -88,13 +86,14 @@ public:
 
   virtual ~ValueExpr() = default;
 
-  RC get_value(const Tuple &tuple, TupleCell & cell) const override;
+  RC get_value(const Tuple &tuple, TupleCell &cell) const override;
   ExprType type() const override
   {
     return ExprType::VALUE;
   }
 
-  void get_tuple_cell(TupleCell &cell) const {
+  void get_tuple_cell(TupleCell &cell) const
+  {
     cell = tuple_cell_;
   }
 

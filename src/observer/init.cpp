@@ -265,7 +265,7 @@ int init(ProcessParam *process_param)
 void cleanup_util()
 {
   uninit_global_objects();
-  
+
   if (nullptr != get_properties()) {
     delete get_properties();
     get_properties() = nullptr;

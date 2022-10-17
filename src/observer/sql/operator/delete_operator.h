@@ -20,11 +20,9 @@ See the Mulan PSL v2 for more details. */
 class Trx;
 class DeleteStmt;
 
-class DeleteOperator : public Operator
-{
+class DeleteOperator : public Operator {
 public:
-  DeleteOperator(DeleteStmt *delete_stmt, Trx *trx)
-    : delete_stmt_(delete_stmt), trx_(trx)
+  DeleteOperator(DeleteStmt *delete_stmt, Trx *trx) : delete_stmt_(delete_stmt), trx_(trx)
   {}
 
   virtual ~DeleteOperator() = default;
@@ -33,11 +31,12 @@ public:
   RC next() override;
   RC close() override;
 
-  Tuple * current_tuple() override {
+  Tuple *current_tuple() override
+  {
     return nullptr;
   }
-  //int tuple_cell_num() const override
-  //RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override
+  // int tuple_cell_num() const override
+  // RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override
 private:
   DeleteStmt *delete_stmt_ = nullptr;
   Trx *trx_ = nullptr;

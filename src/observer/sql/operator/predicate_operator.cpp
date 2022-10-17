@@ -32,7 +32,7 @@ RC PredicateOperator::next()
 {
   RC rc = RC::SUCCESS;
   Operator *oper = children_[0];
-  
+
   while (RC::SUCCESS == (rc = oper->next())) {
     Tuple *tuple = oper->current_tuple();
     if (nullptr == tuple) {
@@ -54,7 +54,7 @@ RC PredicateOperator::close()
   return RC::SUCCESS;
 }
 
-Tuple * PredicateOperator::current_tuple()
+Tuple *PredicateOperator::current_tuple()
 {
   return children_[0]->current_tuple();
 }
@@ -77,27 +77,27 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     const int compare = left_cell.compare(right_cell);
     bool filter_result = false;
     switch (comp) {
-    case EQUAL_TO: {
-      filter_result = (0 == compare); 
-    } break;
-    case LESS_EQUAL: {
-      filter_result = (compare <= 0); 
-    } break;
-    case NOT_EQUAL: {
-      filter_result = (compare != 0);
-    } break;
-    case LESS_THAN: {
-      filter_result = (compare < 0);
-    } break;
-    case GREAT_EQUAL: {
-      filter_result = (compare >= 0);
-    } break;
-    case GREAT_THAN: {
-      filter_result = (compare > 0);
-    } break;
-    default: {
-      LOG_WARN("invalid compare type: %d", comp);
-    } break;
+      case EQUAL_TO: {
+        filter_result = (0 == compare);
+      } break;
+      case LESS_EQUAL: {
+        filter_result = (compare <= 0);
+      } break;
+      case NOT_EQUAL: {
+        filter_result = (compare != 0);
+      } break;
+      case LESS_THAN: {
+        filter_result = (compare < 0);
+      } break;
+      case GREAT_EQUAL: {
+        filter_result = (compare >= 0);
+      } break;
+      case GREAT_THAN: {
+        filter_result = (compare > 0);
+      } break;
+      default: {
+        LOG_WARN("invalid compare type: %d", comp);
+      } break;
     }
     if (!filter_result) {
       return false;

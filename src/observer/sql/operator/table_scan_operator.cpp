@@ -40,7 +40,7 @@ RC TableScanOperator::close()
   return record_scanner_.close_scan();
 }
 
-Tuple * TableScanOperator::current_tuple()
+Tuple *TableScanOperator::current_tuple()
 {
   tuple_.set_record(&current_record_);
   return &tuple_;

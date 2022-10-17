@@ -14,13 +14,12 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/tuple.h"
 
-
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
   return tuple.find_cell(field_, cell);
 }
 
-RC ValueExpr::get_value(const Tuple &tuple, TupleCell & cell) const
+RC ValueExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
   cell = tuple_cell_;
   return RC::SUCCESS;

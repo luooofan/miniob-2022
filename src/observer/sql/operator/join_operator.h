@@ -19,8 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 
 // TODO fixme
-class JoinOperator : public Operator
-{
+class JoinOperator : public Operator {
 public:
   JoinOperator(Operator *left, Operator *right)
   {}

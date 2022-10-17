@@ -20,11 +20,9 @@ See the Mulan PSL v2 for more details. */
 
 class InsertStmt;
 
-class InsertOperator : public Operator
-{
+class InsertOperator : public Operator {
 public:
-  InsertOperator(InsertStmt *insert_stmt)
-    : insert_stmt_(insert_stmt)
+  InsertOperator(InsertStmt *insert_stmt) : insert_stmt_(insert_stmt)
   {}
 
   virtual ~InsertOperator() = default;
