@@ -69,8 +69,11 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     const RelAttr &relation_attr = select_sql.attributes[i];
 
     if (common::is_blank(relation_attr.relation_name) && 0 == strcmp(relation_attr.attribute_name, "*")) {
-      for (Table *table : tables) {
-        wildcard_fields(table, query_fields);
+      // for (Table *table : tables) {
+      //   wildcard_fields(table, query_fields);
+      // }
+      for (auto it = tables.rbegin(); it != tables.rend(); it++) {
+        wildcard_fields(*it, query_fields);
       }
 
     } else if (!common::is_blank(relation_attr.relation_name)) {  // TODO

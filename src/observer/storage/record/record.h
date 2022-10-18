@@ -124,3 +124,5 @@ private:
   // record will not release the memory
   char *data_ = nullptr;
 };
+
+typedef std::vector<Record *> CompoundRecord;
