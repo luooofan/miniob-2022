@@ -45,6 +45,9 @@ void TupleCell::to_string(std::ostream &os) const
       d = *(int *)data_ - y * 10000 - m * 100;
       os << y << "-" << (m < 10 ? "0" : "") << m << "-" << (d < 10 ? "0" : "") << d;
     } break;
+    case NULLS: {
+      os << "NULL";
+    } break;
     default: {
       LOG_WARN("unsupported attr type: %d", attr_type_);
     } break;

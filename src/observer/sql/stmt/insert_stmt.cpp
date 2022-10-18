@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/stmt/insert_stmt.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
 
@@ -42,7 +43,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   const int value_num = inserts.value_num;
   const TableMeta &table_meta = table->table_meta();
   const int sys_field_num = table_meta.sys_field_num();
-  const int field_num = table_meta.field_num() - sys_field_num;
+  const int field_num = table_meta.field_num() - sys_field_num - table_meta.extra_filed_num();
   if (field_num != value_num) {
     LOG_WARN("schema mismatch. value num=%d, field num in schema=%d", value_num, field_num);
     return RC::SCHEMA_FIELD_MISSING;
@@ -50,8 +51,36 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
 
   std::vector<Row> rows;
   for (int i = 0; i < row_num; i++) {
-    Row row;
     const Value *values = inserts.values[i];
+
+    // check fields type
+    const int sys_field_num = table_meta.sys_field_num();
+    for (int j = 0; j < value_num; j++) {
+      const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
+      const AttrType field_type = field_meta->type();
+      const AttrType value_type = values[j].type;
+      if (AttrType::NULLS == value_type) {
+        if (!field_meta->nullable()) {
+          LOG_WARN("field type mismatch. can not be null. table=%s, field=%s, field type=%d, value_type=%d",
+              table_name,
+              field_meta->name(),
+              field_type,
+              value_type);
+          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        }
+        continue;
+      }
+      // if (field_type != value_type) {  // TODO try to convert the value type to field type
+      //   LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+      //       table_name,
+      //       field_meta->name(),
+      //       field_type,
+      //       value_type);
+      //   return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      // }
+    }
+
+    Row row;
     row.values = values;
     rows.push_back(row);
   }

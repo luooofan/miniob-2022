@@ -21,6 +21,8 @@ See the Mulan PSL v2 for more details. */
 #include "common/defs.h"
 #include "common/lang/defer.h"
 #include "sql/parser/parse_defs.h"
+#include "common/lang/bitmap.h"
+#include "storage/common/field_meta.h"
 #include "storage/common/table.h"
 #include "storage/common/table_meta.h"
 #include "common/log/log.h"
@@ -445,7 +447,7 @@ const TableMeta &Table::table_meta() const
 RC Table::make_record(int value_num, const Value *values, char *&record_out)
 {
   // 检查字段类型是否一致
-  if (value_num + table_meta_.sys_field_num() != table_meta_.field_num()) {
+  if (value_num + table_meta_.sys_field_num() + table_meta_.extra_filed_num() != table_meta_.field_num()) {
     LOG_WARN("Input values don't match the table's schema, table name:%s", table_meta_.name());
     return RC::SCHEMA_FIELD_MISSING;
   }
@@ -454,14 +456,56 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   DEFER([&]() { delete[] casted_values; });
 
   const int normal_field_start_index = table_meta_.sys_field_num();
+  // for (int i = 0; i < value_num; i++) {
+  //   const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
+  //   const Value &value = values[i];
+  //   if (AttrType::NULLS == value.type) {
+  //     if (!field->nullable()) {
+  //       LOG_ERROR("Invalid value type. Cannot be null. table name =%s, field name=%s, type=%d, but given=%d",
+  //           table_meta_.name(),
+  //           field->name(),
+  //           field->type(),
+  //           value.type);
+  //       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  //     }
+  //     continue;
+  //   }
+  //   if (field->type() != value.type) {
+  //     LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
+  //         table_meta_.name(),
+  //         field->name(),
+  //         field->type(),
+  //         value.type);
+  //     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  //   }
+  // }
 
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
   char *record = new char[record_size];
+  memset(record, 0, record_size);
+
+  const FieldMeta *null_field = table_meta_.null_bitmap_field();
+  common::Bitmap bitmap(record + null_field->offset(), null_field->len());
 
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
+    if (AttrType::NULLS == value.type) {
+      if (!field->nullable()) {
+        LOG_ERROR("Invalid value type. Cannot be null. table name =%s, field name=%s, type=%d, but given=%d",
+            table_meta_.name(),
+            field->name(),
+            field->type(),
+            value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      bitmap.set_bit(i + normal_field_start_index);
+      assert(nullptr == value.data);
+      // keep data all zero bit. no need to memcpy
+      continue;
+    }
+
     void *tmp_data = nullptr;
     if (field->type() != value.type) {
       tmp_data = cast_to[value.type][field->type()](value.data);
@@ -476,6 +520,7 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     } else {
       tmp_data = value.data;
     }
+
     size_t copy_len = field->len();
     if (field->type() == CHARS) {
       const size_t data_len = strlen((const char *)tmp_data);

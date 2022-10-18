@@ -290,6 +290,12 @@ void relation_attr_destroy(RelAttr *relation_attr)
   relation_attr->attribute_name = nullptr;
 }
 
+void value_init_null(Value *value)
+{
+  value->type = NULLS;
+  value->data = nullptr;
+}
+
 void value_init_integer(Value *value, int v)
 {
   value->type = INTS;
@@ -337,8 +343,10 @@ int value_init_date(Value *value, const char *year, const char *month, const cha
 void value_destroy(Value *value)
 {
   value->type = UNDEFINED;
-  free(value->data);
-  value->data = nullptr;
+  if (nullptr != value->data) {
+    free(value->data);
+    value->data = nullptr;
+  }
 }
 
 void orderby_destroy(OrderBy *orderby)
@@ -352,11 +360,12 @@ void orderby_init(OrderBy *orderby, int is_asc, RelAttr *attr)
   orderby->is_asc = is_asc;
 }
 
-void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length)
+void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length, char nullable)
 {
   attr_info->name = strdup(name);
   attr_info->type = type;
   attr_info->length = length;
+  attr_info->nullable = nullable;
 }
 void attr_info_destroy(AttrInfo *attr_info)
 {

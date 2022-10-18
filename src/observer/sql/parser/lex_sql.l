@@ -91,6 +91,8 @@ DOUBLE_QUOTE     \"
 [Ll][Ee][Nn][Gg][Tt][Hh]                             RETURN_TOKEN(LENGTH);
 [Rr][Oo][Uu][Nn][Dd]                                 RETURN_TOKEN(ROUND);
 [Dd][Aa][Tt][Ee][_][Ff][Oo][Rr][Mm][Aa][Tt]          RETURN_TOKEN(DATE_FORMAT);
+[Nn][Uu][Ll][Ll]                                     RETURN_TOKEN(NULL_VALUE);
+[Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]                     RETURN_TOKEN(NULLABLE);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);

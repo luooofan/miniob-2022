@@ -17,11 +17,11 @@ See the Mulan PSL v2 for more details. */
 #include <memory>
 #include <vector>
 
+#include "common/lang/bitmap.h"
 #include "common/log/log.h"
 #include "sql/parser/parse.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/expr/expression.h"
-#include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
 
 class Table;
@@ -109,7 +109,7 @@ public:
   void set_record(CompoundRecord &record) override
   {
     assert(record.size() >= 1);
-    this->record_ = record.front();
+    set_record(record.front());
     record.erase(record.begin());
   }
 
@@ -122,6 +122,9 @@ public:
   void set_record(Record *record)
   {
     this->record_ = record;
+    const FieldExpr *filed_expr = (FieldExpr *)(this->speces_.back()->expression());
+    const FieldMeta *null_filed_meta = filed_expr->field().meta();
+    this->bitmap_.init(record->data() + null_filed_meta->offset(), null_filed_meta->len());
   }
 
   void set_schema(const Table *table, const std::vector<FieldMeta> *fields)
@@ -148,7 +151,11 @@ public:
     const TupleCellSpec *spec = speces_[index];
     FieldExpr *field_expr = (FieldExpr *)spec->expression();
     const FieldMeta *field_meta = field_expr->field().meta();
-    cell.set_type(field_meta->type());
+    if (bitmap_.get_bit(index)) {
+      cell.set_null();
+    } else {
+      cell.set_type(field_meta->type());
+    }
     cell.set_data(this->record_->data() + field_meta->offset());
     cell.set_length(field_meta->len());
     return RC::SUCCESS;
@@ -198,6 +205,7 @@ public:
   }
 
 private:
+  common::Bitmap bitmap_;
   Record *record_ = nullptr;
   const Table *table_ = nullptr;
   std::vector<TupleCellSpec *> speces_;

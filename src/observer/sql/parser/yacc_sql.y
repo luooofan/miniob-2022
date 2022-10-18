@@ -141,6 +141,8 @@ ParserContext *get_context(yyscan_t scanner)
         SUB
         MUL
         DIV
+        NULL_VALUE
+        NULLABLE
         EQ
         LT
         GT
@@ -331,7 +333,7 @@ attr_def:
     ID_get type LBRACE number RBRACE 
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, $4);
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, FALSE);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name =(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
@@ -342,12 +344,40 @@ attr_def:
     |ID_get type
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, 4);
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, FALSE);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name=(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type=$2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length=4; // default attribute length
+			CONTEXT->value_length++;
+		}
+    |ID_get type LBRACE number RBRACE NOT NULL_VALUE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, FALSE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type LBRACE number RBRACE NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, TRUE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NOT NULL_VALUE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, FALSE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, TRUE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			CONTEXT->value_length++;
 		}
     ;
@@ -623,6 +653,9 @@ value:
 				return -1;
 			}
 		}
+    |NULL_VALUE {
+      value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+    }
     ;
     
 delete:		/*  delete 语句的语法解析树*/

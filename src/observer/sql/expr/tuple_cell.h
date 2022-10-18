@@ -35,6 +35,10 @@ public:
   static const TupleCell mul(const TupleCell &left, const TupleCell &right);
   static const TupleCell div(const TupleCell &left, const TupleCell &right);
 
+  void set_null()
+  {
+    this->attr_type_ = AttrType::NULLS;
+  }
   void set_type(AttrType type)
   {
     this->attr_type_ = type;
@@ -131,6 +135,11 @@ public:
   static const TupleCell &max(const TupleCell &a, const TupleCell &b)
   {
     return a >= b ? a : b;
+  }
+
+  bool is_null() const
+  {
+    return AttrType::NULLS == attr_type_;
   }
 
 private:

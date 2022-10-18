@@ -42,7 +42,7 @@ RC TableMeta::init_sys_fields()
 {
   sys_fields_.reserve(1);
   FieldMeta field_meta;
-  RC rc = field_meta.init(Trx::trx_field_name(), Trx::trx_field_type(), 0, Trx::trx_field_len(), false);
+  RC rc = field_meta.init(Trx::trx_field_name(), Trx::trx_field_type(), 0, Trx::trx_field_len(), false, false);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to init trx field. rc = %d:%s", rc, strrc(rc));
     return rc;
@@ -51,6 +51,7 @@ RC TableMeta::init_sys_fields()
   sys_fields_.push_back(field_meta);
   return rc;
 }
+
 RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 {
   if (common::is_blank(name)) {
@@ -72,7 +73,8 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
     }
   }
 
-  fields_.resize(field_num + sys_fields_.size());
+  const int extra_filed_num = 1;  // used for null-bitmap
+  fields_.resize(field_num + sys_fields_.size() + extra_filed_num);
   for (size_t i = 0; i < sys_fields_.size(); i++) {
     fields_[i] = sys_fields_[i];
   }
@@ -82,7 +84,8 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(attr_info.name, attr_info.type, field_offset, attr_info.length, true);
+    rc = fields_[i + sys_fields_.size()].init(
+        attr_info.name, attr_info.type, field_offset, attr_info.length, static_cast<bool>(attr_info.nullable), true);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
@@ -90,6 +93,15 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
     field_offset += attr_info.length;
   }
+
+  // put null-bitmap field end of record
+  size_t null_field_len = (field_num + sys_fields_.size() - 1) / 8 + 1;  // the length contain sys fields
+  rc = fields_[sys_fields_.size() + field_num].init("null-bitmap", CHARS, field_offset, null_field_len, false, false);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, "null-bitmap");
+    return rc;
+  }
+  field_offset += null_field_len;
 
   record_size_ = field_offset;
 
@@ -112,6 +124,11 @@ const char *TableMeta::name() const
 const FieldMeta *TableMeta::trx_field() const
 {
   return &fields_[0];
+}
+
+const FieldMeta *TableMeta::null_bitmap_field() const
+{
+  return &fields_.back();
 }
 
 const FieldMeta *TableMeta::field(int index) const
@@ -143,6 +160,11 @@ const FieldMeta *TableMeta::find_field_by_offset(int offset) const
 int TableMeta::field_num() const
 {
   return fields_.size();
+}
+
+int TableMeta::extra_filed_num() const
+{
+  return 1;
 }
 
 int TableMeta::sys_field_num() const
