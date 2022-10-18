@@ -39,7 +39,7 @@ int find(const char *s, int b, const char *t)
 {
   int i;
   for (i = b; i < strlen(s); i++) {
-	if (s[i] == *t)	return i;
+		if (s[i] == *t)	return i;
   }
   return -1;
 }
