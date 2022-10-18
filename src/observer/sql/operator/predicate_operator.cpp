@@ -12,11 +12,14 @@ See the Mulan PSL v2 for more details. */
 // Created by WangYunlai on 2022/6/27.
 //
 
+#include "common/lang/defer.h"
 #include "common/log/log.h"
 #include "sql/operator/predicate_operator.h"
 #include "storage/record/record.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/field.h"
+#include "util/typecast.h"
+#include <stdlib.h>
 
 RC PredicateOperator::open()
 {
@@ -71,10 +74,33 @@ bool PredicateOperator::do_predicate(RowTuple &tuple)
     CompOp comp = filter_unit->comp();
     TupleCell left_cell;
     TupleCell right_cell;
+
     left_expr->get_value(tuple, left_cell);
     right_expr->get_value(tuple, right_cell);
 
+    AttrType left_type = left_cell.attr_type();
+    AttrType right_type = right_cell.attr_type();
+    float *tmp_left_float = nullptr;
+    float *tmp_right_float = nullptr;
+    DEFER([&]() {
+      if (tmp_left_float)
+        delete tmp_left_float;
+      if (tmp_right_float)
+        delete tmp_right_float;
+    });
+    if (left_type != right_type) {
+      tmp_left_float = (float *)cast_to[left_type][FLOATS]((void *)left_cell.data());
+      std::cout << *tmp_left_float << std::endl;
+      left_cell.set_data((char *)tmp_left_float);
+      left_cell.set_type(FLOATS);
+      tmp_right_float = (float *)cast_to[right_type][FLOATS]((void *)right_cell.data());
+      std::cout << *tmp_right_float << std::endl;
+      right_cell.set_data((char *)tmp_right_float);
+      right_cell.set_type(FLOATS);
+    }
+
     const int compare = left_cell.compare(right_cell);
+
     bool filter_result = false;
     switch (comp) {
       case EQUAL_TO: {

@@ -12,11 +12,15 @@ See the Mulan PSL v2 for more details. */
 // Created by Meiyi & Wangyunlai on 2021/5/13.
 //
 
+#include <json/value.h>
 #include <limits.h>
 #include <string.h>
 #include <algorithm>
+#include <stdio.h>
 
 #include "common/defs.h"
+#include "common/lang/defer.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/common/table.h"
 #include "storage/common/table_meta.h"
 #include "common/log/log.h"
@@ -29,6 +33,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/index/bplus_tree_index.h"
 #include "storage/trx/trx.h"
 #include "storage/clog/clog.h"
+#include "util/typecast.h"
 
 Table::~Table()
 {
@@ -388,19 +393,10 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
     return RC::SCHEMA_FIELD_MISSING;
   }
 
+  Value *casted_values = new Value[value_num];
+  DEFER([&]() { delete[] casted_values; });
+
   const int normal_field_start_index = table_meta_.sys_field_num();
-  for (int i = 0; i < value_num; i++) {
-    const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
-    const Value &value = values[i];
-    if (field->type() != value.type) {
-      LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
-          table_meta_.name(),
-          field->name(),
-          field->type(),
-          value.type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
-  }
 
   // 复制所有字段的值
   int record_size = table_meta_.record_size();
@@ -409,14 +405,45 @@ RC Table::make_record(int value_num, const Value *values, char *&record_out)
   for (int i = 0; i < value_num; i++) {
     const FieldMeta *field = table_meta_.field(i + normal_field_start_index);
     const Value &value = values[i];
+    void *tmp_data = nullptr;
+    if (field->type() != value.type) {
+      tmp_data = cast_to[value.type][field->type()](value.data);
+      if (nullptr == tmp_data) {
+        LOG_ERROR("Invalid value type. table name =%s, field name=%s, type=%d, but given=%d",
+            table_meta_.name(),
+            field->name(),
+            field->type(),
+            value.type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+    } else {
+      tmp_data = value.data;
+    }
     size_t copy_len = field->len();
     if (field->type() == CHARS) {
-      const size_t data_len = strlen((const char *)value.data);
+      const size_t data_len = strlen((const char *)tmp_data);
       if (copy_len > data_len) {
         copy_len = data_len + 1;
       }
     }
-    memcpy(record + field->offset(), value.data, copy_len);
+    memcpy(record + field->offset(), tmp_data, copy_len);
+    if (field->type() != value.type) {
+      assert(nullptr != tmp_data);
+      switch (field->type()) {
+        case CHARS:
+          delete (char *)tmp_data;
+          break;
+        case INTS:
+          delete (int *)tmp_data;
+          break;
+        case FLOATS:
+          delete (float *)tmp_data;
+          break;
+        default:
+          LOG_ERROR("WON'T BE HERE");
+          break;
+      }
+    }
   }
 
   record_out = record;

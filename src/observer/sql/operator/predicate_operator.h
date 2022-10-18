@@ -38,6 +38,7 @@ public:
   // RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override;
 private:
   bool do_predicate(RowTuple &tuple);
+  RC do_cast(TupleCell &left_cell, TupleCell &right_cell, int &tmp_int, float &tmp_float);
 
 private:
   FilterStmt *filter_stmt_ = nullptr;
