@@ -76,13 +76,13 @@ static void replace_all(std::string &str, const std::string &from, const std::st
   }
 }
 
-bool PredicateOperator::do_predicate(Tuple &tuple)
+bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units, Tuple &tuple)
 {
-  if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
+  if (filter_units.empty()) {
     return true;
   }
 
-  for (const FilterUnit *filter_unit : filter_stmt_->filter_units()) {
+  for (const FilterUnit *filter_unit : filter_units) {
     Expression *left_expr = filter_unit->left();
     Expression *right_expr = filter_unit->right();
     CompOp comp = filter_unit->comp();
@@ -162,6 +162,11 @@ bool PredicateOperator::do_predicate(Tuple &tuple)
     }
   }
   return true;
+}
+
+bool PredicateOperator::do_predicate(Tuple &tuple)
+{
+  return do_predicate(filter_stmt_->filter_units(), tuple);
 }
 
 // int PredicateOperator::tuple_cell_num() const

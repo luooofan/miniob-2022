@@ -31,6 +31,10 @@ public:
   RC next() override;
   RC close() override;
 
+  const Table *get_table() const
+  {
+    return table_;
+  }
   Tuple *current_tuple() override;
 
   // int tuple_cell_num() const override

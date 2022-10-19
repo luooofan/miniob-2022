@@ -443,6 +443,7 @@ std::unordered_map<Table *, std::unique_ptr<FilterUnits>> split_filters(
 RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers)
 {
   std::list<Operator *> oper_store;
+  std::list<Table *> table_list;
   {
     const auto &tables = select_stmt->tables();
     FilterStmt *filter_stmt = select_stmt->filter_stmt();
@@ -453,9 +454,16 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
         scan_oper = new TableScanOperator(tables[i]);
       }
       oper_store.push_front(scan_oper);
+      table_list.push_front(tables[i]);
       delete_opers.push_back(scan_oper);
     }
   }
+
+  std::unordered_set<const Table *> table_set;
+  table_set.insert(table_list.front());
+  table_list.pop_front();
+  auto &filter_units = select_stmt->filter_stmt()->filter_units();
+
   while (oper_store.size() > 1) {
     JoinOperator *join_oper = NULL;
     Operator *left_oper = NULL;
@@ -466,8 +474,35 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
     right_oper = oper_store.front();
     oper_store.pop_front();
 
+    table_set.insert(table_list.front());
+    table_list.pop_front();
+
     join_oper = new JoinOperator(left_oper, right_oper);
     oper_store.push_front(join_oper);
+
+    // get proper filter unit. then add to join_oper
+    for (auto it = filter_units.begin(); it != filter_units.end();) {
+      auto unit = *it;
+      bool addable = true;
+      Expression *left_expr = unit->left();
+      if (ExprType::FIELD == left_expr->type()) {
+        if (0 == table_set.count(((FieldExpr *)left_expr)->table())) {
+          addable = false;
+        }
+      }
+      Expression *right_expr = unit->right();
+      if (ExprType::FIELD == right_expr->type()) {
+        if (0 == table_set.count(((FieldExpr *)right_expr)->table())) {
+          addable = false;
+        }
+      }
+      if (addable) {
+        join_oper->add_filter_unit(unit);
+        it = filter_units.erase(it);
+      } else {
+        it++;
+      }
+    }
   }
   *result_op = oper_store.front();
   return RC::SUCCESS;

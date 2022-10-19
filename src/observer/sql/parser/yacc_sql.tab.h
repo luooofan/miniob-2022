@@ -54,59 +54,61 @@ enum yytokentype {
   TABLE = 261,
   TABLES = 262,
   INDEX = 263,
-  SELECT = 264,
-  DESC = 265,
-  SHOW = 266,
-  SYNC = 267,
-  INSERT = 268,
-  DELETE = 269,
-  UPDATE = 270,
-  LBRACE = 271,
-  RBRACE = 272,
-  COMMA = 273,
-  TRX_BEGIN = 274,
-  TRX_COMMIT = 275,
-  TRX_ROLLBACK = 276,
-  INT_T = 277,
-  STRING_T = 278,
-  DATE_T = 279,
-  FLOAT_T = 280,
-  HELP = 281,
-  EXIT = 282,
-  DOT = 283,
-  INTO = 284,
-  VALUES = 285,
-  FROM = 286,
-  WHERE = 287,
-  AND = 288,
-  SET = 289,
-  ON = 290,
-  LOAD = 291,
-  DATA = 292,
-  INFILE = 293,
-  NOT = 294,
-  LIKE = 295,
-  EQ = 296,
-  LT = 297,
-  GT = 298,
-  LE = 299,
-  GE = 300,
-  NE = 301,
-  NUMBER = 302,
-  FLOAT = 303,
-  ID = 304,
-  PATH = 305,
-  SSS = 306,
-  STAR = 307,
-  STRING_V = 308,
-  DATE_STR = 309
+  INNER = 264,
+  JOIN = 265,
+  SELECT = 266,
+  DESC = 267,
+  SHOW = 268,
+  SYNC = 269,
+  INSERT = 270,
+  DELETE = 271,
+  UPDATE = 272,
+  LBRACE = 273,
+  RBRACE = 274,
+  COMMA = 275,
+  TRX_BEGIN = 276,
+  TRX_COMMIT = 277,
+  TRX_ROLLBACK = 278,
+  INT_T = 279,
+  STRING_T = 280,
+  DATE_T = 281,
+  FLOAT_T = 282,
+  HELP = 283,
+  EXIT = 284,
+  DOT = 285,
+  INTO = 286,
+  VALUES = 287,
+  FROM = 288,
+  WHERE = 289,
+  AND = 290,
+  SET = 291,
+  ON = 292,
+  LOAD = 293,
+  DATA = 294,
+  INFILE = 295,
+  NOT = 296,
+  LIKE = 297,
+  EQ = 298,
+  LT = 299,
+  GT = 300,
+  LE = 301,
+  GE = 302,
+  NE = 303,
+  NUMBER = 304,
+  FLOAT = 305,
+  ID = 306,
+  PATH = 307,
+  SSS = 308,
+  STAR = 309,
+  STRING_V = 310,
+  DATE_STR = 311
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 119 "yacc_sql.y"
+#line 121 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -116,7 +118,7 @@ union YYSTYPE {
   float floats;
   char *position;
 
-#line 122 "yacc_sql.tab.h"
+#line 124 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1

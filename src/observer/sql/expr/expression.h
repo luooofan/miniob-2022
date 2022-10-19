@@ -58,6 +58,11 @@ public:
     return field_;
   }
 
+  const Table *table() const
+  {
+    return field_.table();
+  }
+
   const char *table_name() const
   {
     return field_.table_name();
