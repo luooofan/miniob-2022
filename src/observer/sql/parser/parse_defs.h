@@ -57,8 +57,8 @@ typedef struct _Value {
 
 typedef struct _UnaryExpr {
   int is_attr;  // TRUE if is an attribute
-  Value *value;
-  RelAttr *attr;
+  Value value;
+  RelAttr attr;
 } UnaryExpr;
 
 struct _Expr;
@@ -88,12 +88,12 @@ typedef struct _Condition {
 
 // struct of select
 typedef struct {
-  size_t attr_num;                // Length of attrs in Select clause
-  RelAttr attributes[MAX_NUM];    // attrs in Select clause
-  size_t relation_num;            // Length of relations in Fro clause
-  char *relations[MAX_NUM];       // relations in From clause
-  size_t condition_num;           // Length of conditions in Where clause
-  Condition conditions[MAX_NUM];  // conditions in Where clause
+  size_t attr_num;              // Length of attrs in Select clause
+  RelAttr attributes[MAX_NUM];  // attrs in Select clause
+  size_t relation_num;          // Length of relations in Fro clause
+  char *relations[MAX_NUM];     // relations in From clause
+  size_t condition_num;         // Length of conditions in Where clause
+  Expr *conditions[MAX_NUM];    // conditions in Where clause
 } Selects;
 
 // struct of insert
@@ -211,6 +211,16 @@ typedef struct Query {
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
+void binary_expr_init(BinaryExpr *expr, CompOp op, Expr *left_expr, Expr *right_expr);
+void binary_expr_destory(BinaryExpr *expr);
+
+void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
+void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
+void expr_destroy(Expr *expr);
+
+void unary_expr_init_value(UnaryExpr *expr, Value *value);
+void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr);
+void unary_expr_destory(UnaryExpr *expr);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
 void relation_attr_destroy(RelAttr *relation_attr);

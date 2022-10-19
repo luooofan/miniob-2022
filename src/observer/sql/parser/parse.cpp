@@ -22,6 +22,54 @@ RC parse(char *st, Query *sqln);
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
+
+void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
+{
+  expr->type = 0;
+  expr->uexp = u_expr;
+}
+void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
+{
+  expr->type = 1;
+  expr->bexp = b_expr;
+}
+void expr_destroy(Expr *expr)
+{
+  if (expr->type) {
+    binary_expr_destroy(expr->bexp);
+  } else {
+    unary_expr_destory(expr->uexp);
+  }
+}
+
+void binary_expr_init(BinaryExpr *expr, CompOp op, Expr *left_expr, Expr *right_expr)
+{
+  expr->left = left_expr;
+  expr->right = right_expr;
+  expr->comp = op;
+}
+void binary_expr_destory(BinaryExpr *expr)
+{
+  expr_destroy(expr->left);
+  expr_destroy(expr->right);
+}
+
+void unary_expr_init_value(UnaryExpr *expr, Value *value)
+{
+  expr->is_attr = 0;
+  expr->value = *value;
+}
+void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr)
+{
+  expr->is_attr = 1;
+  expr->attr = *relation_attr;
+}
+
+void unary_expr_destory(UnaryExpr *expr)
+{
+  return;
+}
+
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name)
 {
   if (relation_name != nullptr) {
@@ -145,12 +193,13 @@ void selects_append_relation(Selects *selects, const char *relation_name)
   selects->relations[selects->relation_num++] = strdup(relation_name);
 }
 
-void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)
+void selects_append_conditions(Selects *selects, Expr *conditions[], size_t condition_num)
 {
   assert(condition_num <= sizeof(selects->conditions) / sizeof(selects->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
     selects->conditions[i] = conditions[i];
   }
+
   selects->condition_num = condition_num;
 }
 

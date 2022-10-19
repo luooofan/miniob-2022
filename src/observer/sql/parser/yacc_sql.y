@@ -17,7 +17,8 @@ typedef struct ParserContext {
   size_t from_length;
   size_t value_length;
   Value values[MAX_NUM];
-  Condition conditions[MAX_NUM];
+  Expr* conditions[MAX_NUM];
+  OrderBy orderbys[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -123,6 +124,8 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Attr *attr;
   struct _Condition *condition1;
   struct _Value *value1;
+  struct _UnaryExpr* uexp1;
+  struct _Expr* exp1;
   char *string;
   int number;
   float floats;
@@ -140,9 +143,11 @@ ParserContext *get_context(yyscan_t scanner)
 //非终结符
 
 %type <number> type;
-%type <condition1> condition;
 %type <value1> value;
 %type <number> number;
+%type <uexp1> unary_expr;
+%type <exp1> mul_expr;
+%type <exp1> add_expr;
 
 %%
 
@@ -356,43 +361,72 @@ value_list:
 
 mul_expr:
     unary_expr {
-    // unary_expr
-    // init_unary_expr
-
+		Expr * expr = malloc(sizeof(Expr));
+		expr_init_unary(expr, $1);
+		$$ = expr;
     }
     | mul_expr STAR unary_expr {
-    // expr
-    // init_binary_expr
-
+		Expr * expr = malloc(sizeof(Expr));
+		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+		binary_expr_init(b_expr, MUL, $1, $3);
+		expr_init_binary(expr, b_expr);
+		$$ = expr;
     }
     | mul_expr DIV unary_expr {
-    // expr
-
+    	Expr * expr = malloc(sizeof(Expr));
+		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+		binary_expr_init(b_expr, DIV, $1, $3);
+		expr_init_binary(expr, b_expr);
+		$$ = expr;
     }
+	;
 
 add_expr:
     mul_expr { $$ = $1; }
     | add_expr ADD mul_expr {
-    // expr
+    	Expr * expr = malloc(sizeof(Expr));
+		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+		binary_expr_init(b_expr, ADD, $1, $3);
+		expr_init_binary(expr, b_expr);
+		$$ = expr;
 
     }
     | add_expr SUB mul_expr {
-    // expr
-
+    	Expr * expr = malloc(sizeof(Expr));
+		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+		binary_expr_init(b_expr, SUB, $1, $3);
+		expr_init_binary(expr, b_expr);
+		$$ = expr;
     }
 
-rel_expr:
-    add_expr comOp add_expr
+condition:
+    add_expr comOp add_expr{
+		Expr * expr = malloc(sizeof(Expr));
+		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+		binary_expr_init(b_expr, CONTEXT->comp, $1, $3);
+		expr_init_binary(expr, b_expr);
+		CONTEXT->conditions[CONTEXT->condition_length++]= expr;
+	}
 
 unary_expr:
     value {
-
+		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+		unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
+		$$ = u_expr;
     }
     | ID {
-
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+		unary_expr_init_attr(u_expr, &attr);
+		$$ = u_expr;
     }
     | ID DOT ID {
-
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+		unary_expr_init_attr(u_expr, &attr);
+		$$ = u_expr;
     };
 
 value:
@@ -530,152 +564,6 @@ condition_list:
     | AND condition condition_list {
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
 			}
-    ;
-condition:
-    ID comOp value 
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, NULL, $1);
-
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name = NULL;
-			// $$->left_attr.attribute_name= $1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
-
-		}
-		|value comOp value 
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
-
-		}
-		|ID comOp ID 
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, NULL, $1);
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, NULL, $3);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 1;
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=$3;
-
-		}
-    |value comOp ID
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, NULL, $3);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp=CONTEXT->comp;
-			
-			// $$->right_is_attr = 1;
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=$3;
-		
-		}
-    |ID DOT ID comOp value
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, $1, $3);
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name=$1;
-			// $$->left_attr.attribute_name=$3;
-			// $$->comp=CONTEXT->comp;
-			// $$->right_is_attr = 0;   //属性值
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=NULL;
-			// $$->right_value =*$5;			
-							
-    }
-    |value comOp ID DOT ID
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, $3, $5);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;//属性值
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp =CONTEXT->comp;
-			// $$->right_is_attr = 1;//属性
-			// $$->right_attr.relation_name = $3;
-			// $$->right_attr.attribute_name = $5;
-									
-    }
-    |ID DOT ID comOp ID DOT ID
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, $1, $3);
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, $5, $7);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;		//属性
-			// $$->left_attr.relation_name=$1;
-			// $$->left_attr.attribute_name=$3;
-			// $$->comp =CONTEXT->comp;
-			// $$->right_is_attr = 1;		//属性
-			// $$->right_attr.relation_name=$5;
-			// $$->right_attr.attribute_name=$7;
-    }
     ;
 
 comOp:
