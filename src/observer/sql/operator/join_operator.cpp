@@ -1,4 +1,7 @@
 #include "sql/operator/join_operator.h"
+#include "common/log/log.h"
+#include "sql/operator/predicate_operator.h"
+#include "sql/stmt/filter_stmt.h"
 
 RC JoinOperator::open()
 {
@@ -11,11 +14,24 @@ RC JoinOperator::open()
     rc = RC::INTERNAL;
     LOG_WARN("JoinOperater child right open failed!");
   }
-  Tuple *left_tuple = left_->current_tuple();
-  Tuple *right_tuple = right_->current_tuple();
-  tuple_.init(left_tuple, right_tuple);
-  // assert(RC::SUCCESS == left_->next());
+  tuple_.init(left_->current_tuple(), right_->current_tuple());
+  LOG_INFO("Open JoinOperater SUCCESS. There are %d filter units.", filter_units_.size());
   return rc;
+}
+
+void JoinOperator::filter_right_table()
+{
+  filtered_rht_.clear();
+  rht_it_ = filtered_rht_.end();
+  for (size_t i = 0; i < rht_.size(); ++i) {
+    CompoundRecord temp(rht_[i]);
+    tuple_.set_right_record(temp);
+    if (PredicateOperator::do_predicate(filter_units_, tuple_)) {
+      filtered_rht_.emplace_back(i);
+    }
+  }
+  rht_it_ = filtered_rht_.begin();
+  LOG_INFO("Filter Right Table Success! There are %d rows in right table satisfy predicates.", filtered_rht_.size());
 }
 
 RC JoinOperator::fetch_right_table()
@@ -32,8 +48,7 @@ RC JoinOperator::fetch_right_table()
     }
     rht_.emplace_back(cpd_rcd);
   }
-  rht_it_ = rht_.begin();
-  print_info();
+  LOG_INFO("Fetch Right Table Success! There are %d rows in right table.", rht_.size());
 
   if (RC::RECORD_EOF == rc) {
     return RC::SUCCESS;
@@ -43,42 +58,47 @@ RC JoinOperator::fetch_right_table()
 
 void JoinOperator::print_info()
 {
-  std::cout << "right table info: " << std::endl;
+  // std::cout << "right table info: " << std::endl;
   // for (auto& cpd_rcd : rht_) {
   // }
   std::cout << "current right table iter: " << std::endl;
-  std::cout << rht_it_ - rht_.begin() << std::endl;
-  std::cout << "current tuple: " << std::endl;
-  //
+  std::cout << rht_it_ - filtered_rht_.begin() << std::endl;
+  // std::cout << "current tuple: " << std::endl;
 }
 
 RC JoinOperator::next()
 {
   RC rc = RC::SUCCESS;
+
   if (is_first_) {
-    rc = left_->next();
     is_first_ = false;
-    if (RC::SUCCESS != rc) {
-      return rc;
-    }
     rc = fetch_right_table();
     if (RC::SUCCESS != rc) {
+      LOG_ERROR("Fetch Right Table Failed");
       return rc;
     }
-    assert(rht_.begin() == rht_it_);
+    rht_it_ = filtered_rht_.end();
   }
-  if (rht_.end() != rht_it_) {
-    CompoundRecord temp(*rht_it_);
+
+  if (filtered_rht_.end() != rht_it_) {
+    CompoundRecord temp(rht_[*rht_it_]);
     tuple_.set_right_record(temp);
     rht_it_++;
     return RC::SUCCESS;
   }
+
   rc = left_->next();
   if (RC::SUCCESS == rc) {
-    rht_it_ = rht_.begin();
+    filter_right_table();
     return next();
   }
-  // LOG_ERROR
+
+  if (RC::RECORD_EOF == rc) {
+    LOG_INFO("Fetch Left Record EOF");
+  } else {
+    LOG_ERROR("Fetch Left Next Failed");
+  }
+
   return rc;
 }
 
