@@ -353,6 +353,48 @@ value_list:
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
 	  }
     ;
+
+mul_expr:
+    unary_expr {
+    // unary_expr
+    // init_unary_expr
+
+    }
+    | mul_expr STAR unary_expr {
+    // expr
+    // init_binary_expr
+
+    }
+    | mul_expr DIV unary_expr {
+    // expr
+
+    }
+
+add_expr:
+    mul_expr { $$ = $1; }
+    | add_expr ADD mul_expr {
+    // expr
+
+    }
+    | add_expr SUB mul_expr {
+    // expr
+
+    }
+
+rel_expr:
+    add_expr comOp add_expr
+
+unary_expr:
+    value {
+
+    }
+    | ID {
+
+    }
+    | ID DOT ID {
+
+    };
+
 value:
     NUMBER{	
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);

@@ -39,6 +39,10 @@ typedef enum {
   GREAT_THAN,   //">"         5
   LIKE_OP,      //"like"      6
   NOT_LIKE_OP,  //"not like"  7
+  ADD,
+  SUB,
+  MUL,
+  DIV,
   NO_OP
 } CompOp;
 
@@ -50,6 +54,25 @@ typedef struct _Value {
   AttrType type;  // type of value
   void *data;     // value
 } Value;
+
+typedef struct _UnaryExpr {
+  int is_attr;  // TRUE if is an attribute
+  Value *value;
+  RelAttr *attr;
+} UnaryExpr;
+
+struct _Expr;
+typedef struct _BinaryExpr {
+  CompOp comp;
+  _Expr *left;
+  _Expr *right;
+} BinaryExpr;
+
+typedef struct _Expr {
+  int type;  // 0 1 2(func)
+  UnaryExpr *uexp;
+  BinaryExpr *bexp;
+} Expr;
 
 typedef struct _Condition {
   int left_is_attr;    // TRUE if left-hand side is an attribute
