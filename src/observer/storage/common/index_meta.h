@@ -36,6 +36,7 @@ public:
   const char *field() const;
 
   void desc(std::ostream &os) const;
+  void show(std::ostream &os) const;
 
 public:
   void to_json(Json::Value &json_value) const;

@@ -80,3 +80,8 @@ void IndexMeta::desc(std::ostream &os) const
 {
   os << "index name=" << name_ << ", field=" << field_;
 }
+
+void IndexMeta::show(std::ostream &os) const
+{
+  os << 1 << " | " << name_ << " | " << 1 << " | " << field_;
+}
