@@ -375,6 +375,48 @@ RC Table::insert_record(Trx *trx, int value_num, const Value *values)
   return rc;
 }
 
+RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
+{
+  RC rc = RC::SUCCESS;
+  if (value_num <= 0 || nullptr == rows) {
+    LOG_ERROR("Invalid argument. table name: %s, value num=%d, values=%p", name(), value_num, rows);
+    return RC::INVALID_ARGUMENT;
+  }
+
+  int row_amount = rows->size();
+  std::vector<Record> records_done;
+  for (int i = 0; i < row_amount; i++) {
+    char *record_data;
+    const Value *values = rows->at(i).values;
+    rc = make_record(value_num, values, record_data);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+      return rc;
+    }
+
+    Record record;
+    record.set_data(record_data);
+    rc = insert_record(trx, &record);
+
+    // when one record insert failed, delete records inserted just now
+    if (RC::SUCCESS != rc) {
+      LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
+
+      for (int j = 0; j < records_done.size(); j++) {
+        rc = delete_record(trx, &records_done[j]);
+        if (RC::SUCCESS != rc) {
+          LOG_ERROR("Failed to rollback record [%p]. rc=%d:%s", records_done[j], rc, strrc(rc));
+        }
+      }
+    }
+
+    records_done.push_back(record);
+    delete[] record_data;
+  }
+  records_done.clear();
+  return rc;
+}
+
 const char *Table::name() const
 {
   return table_meta_.name();

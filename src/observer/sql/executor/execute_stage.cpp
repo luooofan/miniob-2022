@@ -35,6 +35,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
 #include "sql/operator/predicate_operator.h"
+#include "sql/operator/insert_operator.h"
 #include "sql/operator/update_operator.h"
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
@@ -641,6 +642,7 @@ RC ExecuteStage::do_desc_table(SQLStageEvent *sql_event)
 
 RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
 {
+  RC rc = RC::SUCCESS;
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();
@@ -654,9 +656,9 @@ RC ExecuteStage::do_insert(SQLStageEvent *sql_event)
   }
 
   InsertStmt *insert_stmt = (InsertStmt *)stmt;
-  Table *table = insert_stmt->table();
+  InsertOperator insert_oper(insert_stmt, trx);
 
-  RC rc = table->insert_record(trx, insert_stmt->value_amount(), insert_stmt->values());
+  rc = insert_oper.open();
   if (rc == RC::SUCCESS) {
     if (!session->is_trx_multi_operation_mode()) {
       CLogRecord *clog_record = nullptr;

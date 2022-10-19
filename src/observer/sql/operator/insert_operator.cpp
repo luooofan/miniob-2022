@@ -19,10 +19,21 @@ See the Mulan PSL v2 for more details. */
 
 RC InsertOperator::open()
 {
+  RC rc = RC::SUCCESS;
   Table *table = insert_stmt_->table();
-  const Value *values = insert_stmt_->values();
+  int row_amount = insert_stmt_->row_amount();
   int value_amount = insert_stmt_->value_amount();
-  return table->insert_record(nullptr, value_amount, values);  // TODO trx
+
+  if (row_amount > 1) {
+    rc = table->insert_record(trx_, value_amount, insert_stmt_->rows());
+  } else {
+    rc = table->insert_record(trx_, value_amount, insert_stmt_->rows()->at(0).values);
+  }
+
+  if (RC::SUCCESS != rc) {
+    LOG_WARN("insert record failed");
+  }
+  return rc;
 }
 
 RC InsertOperator::next()
