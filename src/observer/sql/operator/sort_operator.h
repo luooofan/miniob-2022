@@ -1,13 +1,3 @@
-/* Copyright (c) 2021 Xie Meiyi(xiemeiyi@hust.edu.cn) and OceanBase and/or its affiliates. All rights reserved.
-miniob is licensed under Mulan PSL v2.
-You can use this software according to the terms and conditions of the Mulan PSL v2.
-You may obtain a copy of Mulan PSL v2 at:
-         http://license.coscl.org.cn/MulanPSL2
-THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND,
-EITHER EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT,
-MERCHANTABILITY OR FIT FOR A PARTICULAR PURPOSE.
-See the Mulan PSL v2 for more details. */
-
 #pragma once
 
 #include <vector>
@@ -17,7 +7,6 @@ See the Mulan PSL v2 for more details. */
 
 class OrderByStmt;
 
-// TODO fixme
 class SortOperator : public Operator {
 public:
   SortOperator(OrderByStmt *orderby_stmt) : orderby_stmt_(orderby_stmt)
@@ -41,16 +30,13 @@ public:
   void print_info();
 
 private:
-  RC fetch_table();
-  RC sort_table();
-  bool CmpAsc(CompoundRecord a, CompoundRecord b);
-  bool CmpDesc(CompoundRecord a, CompoundRecord b);
+  RC fetch_and_sort_table();
 
 private:
-  bool is_first_ = true;
-  // std::vector<CompoundRecord>::iterator st_it_;  // sort table stmt
-  std::vector<CompoundRecord> st_;  // sort table
   OrderByStmt *orderby_stmt_ = nullptr;
+  bool is_first_ = true;
+
+  std::vector<CompoundRecord> st_;  // sort table
   std::vector<int> ordered_idx_;
   std::vector<int>::iterator it_;
 };

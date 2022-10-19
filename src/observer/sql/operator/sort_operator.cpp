@@ -1,4 +1,5 @@
 #include "sql/operator/sort_operator.h"
+#include "common/log/log.h"
 #include "sql/stmt/orderby_stmt.h"
 #include <algorithm>
 
@@ -12,14 +13,15 @@ RC SortOperator::open()
   return rc;
 }
 
-RC SortOperator::fetch_table()
+RC SortOperator::fetch_and_sort_table()
 {
   RC rc = RC::SUCCESS;
+
   int index = 0;
   typedef std::pair<std::vector<TupleCell>, int> CmpPair;
   std::vector<CmpPair> pair_sort_table;
-  // std::pair<std::vector<TupleCell>, int> pair;
   std::vector<TupleCell> pair_cell;
+
   auto &units = orderby_stmt_->orderby_units();
   while (RC::SUCCESS == (rc = children_[0]->next())) {
     // construct pair sort table
@@ -44,10 +46,16 @@ RC SortOperator::fetch_table()
     }
     st_.emplace_back(cpd_rcd);
   }
-  // st_it_ = st_.begin();
-  print_info();
+  if (RC::RECORD_EOF != rc) {
+    LOG_ERROR("Fetch Table Error In SortOperator. RC: %d", rc);
+    return rc;
+  }
+  rc = RC::SUCCESS;
+  LOG_INFO("Fetch Table Success In SortOperator");
+  // print_info();
+
   // then sort table
-  bool order[units.size()];
+  bool order[units.size()];  // specify asc or desc
   for (std::vector<OrderByUnit *>::size_type i = 0; i < units.size(); ++i) {
     order[i] = units[i]->sort_type();
   }
@@ -65,22 +73,15 @@ RC SortOperator::fetch_table()
     return false;  // completely same
   };
   std::sort(pair_sort_table.begin(), pair_sort_table.end(), cmp);
+  LOG_INFO("Sort Table Success In SortOperator");
+
   // fill ordered_idx_
   for (size_t i = 0; i < pair_sort_table.size(); ++i) {
     ordered_idx_.emplace_back(pair_sort_table[i].second);
   }
   it_ = ordered_idx_.begin();
 
-  if (RC::RECORD_EOF == rc) {
-    return RC::SUCCESS;
-  }
-  return rc;
-}
-
-RC SortOperator::sort_table()
-{
-  // orderby_stmt_
-  return RC::SUCCESS;
+  return rc;  // return RC::SUCCESS
 }
 
 void SortOperator::print_info()
@@ -91,38 +92,29 @@ void SortOperator::print_info()
   }
   std::cout << "current child sort table iter: " << std::endl;
   std::cout << it_ - ordered_idx_.begin() << std::endl;
-  std::cout << "current tuple: " << std::endl;
+  // std::cout << "current tuple: " << std::endl;
 }
 
 RC SortOperator::next()
 {
   RC rc = RC::SUCCESS;
-  // first cache child tuple
+  // at first cache child tuple and sort them
   if (is_first_) {
     is_first_ = false;
-    rc = fetch_table();
-    if (RC::SUCCESS != rc) {
-      return rc;
-    }
-    // rc = sort_table();
-    // std::sort(st_.begin(), st_.end(), CmpAsc);
+    rc = fetch_and_sort_table();
     if (RC::SUCCESS != rc) {
       return rc;
     }
   }
 
-  // cache并sort之后填充返回tuple
   if (ordered_idx_.end() != it_) {
     // NOTE: PAY ATTENTION HERE
     children_[0]->current_tuple()->set_record(st_[*it_]);
     it_++;
     return RC::SUCCESS;
   }
-  // 如果读缓存读到最后一行，说明已经读完了
-  if (RC::SUCCESS == rc) {
-    return RC::RECORD_EOF;
-  }
-  return rc;
+
+  return RC::RECORD_EOF;
 }
 
 RC SortOperator::close()
