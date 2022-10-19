@@ -15,11 +15,14 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/defer.h"
 #include "common/log/log.h"
 #include "sql/operator/predicate_operator.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/field.h"
 #include "util/typecast.h"
 #include <stdlib.h>
+#include <regex>
+#include <string>
 
 RC PredicateOperator::open()
 {
@@ -61,6 +64,18 @@ Tuple *PredicateOperator::current_tuple()
   return children_[0]->current_tuple();
 }
 
+static void replace_all(std::string &str, const std::string &from, const std::string &to)
+{
+  if (from.empty()) {
+    return;
+  }
+  size_t pos = 0;
+  while (std::string::npos != (pos = str.find(from, pos))) {
+    str.replace(pos, from.length(), to);
+    pos += to.length();  // in case 'to' contains 'from'
+  }
+}
+
 bool PredicateOperator::do_predicate(Tuple &tuple)
 {
   if (filter_stmt_ == nullptr || filter_stmt_->filter_units().empty()) {
@@ -79,6 +94,23 @@ bool PredicateOperator::do_predicate(Tuple &tuple)
 
     AttrType left_type = left_cell.attr_type();
     AttrType right_type = right_cell.attr_type();
+
+    // some predicates. contains like, in, compare.
+    // for like. only occur in chars type. no need to concern typecast
+    if (LIKE_OP == comp || NOT_LIKE_OP == comp) {
+      assert(CHARS == left_type && CHARS == right_type);
+      std::string raw_reg((const char *)right_cell.data());
+      replace_all(raw_reg, "_", "[^']");
+      replace_all(raw_reg, "%", "[^']*");
+      std::regex reg(raw_reg.c_str());
+      bool res = std::regex_match((const char *)left_cell.data(), reg);
+      if (LIKE_OP == comp) {
+        return res;
+      }
+      return !res;
+    }
+
+    // for compare.
     float *tmp_left_float = nullptr;
     float *tmp_right_float = nullptr;
     DEFER([&]() {
