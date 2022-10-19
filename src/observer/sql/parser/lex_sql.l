@@ -27,7 +27,8 @@ DIGIT            [0-9]+
 
 ID               [A-Za-z_]+[A-Za-z0-9_]*
 DOT              \.
-QUOTE            [\'\"]
+QUOTE            \'
+DOUBLE_QUOTE     \"
 %x STR
 
 %%
@@ -88,7 +89,8 @@ QUOTE            [\'\"]
 ">"                                                  RETURN_TOKEN(GT);
 
 {QUOTE}([0-9]{4})\-([0-9]|[0-9]{2})\-([0-9]|[0-9]{2}){QUOTE}     yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
-{QUOTE}[\40\42\47A-Za-z0-9_/\.\-\%]*{QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+{QUOTE}(\\\47|[\40\42A-Za-z0-9_/\.\-\%])*{QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+{DOUBLE_QUOTE}(\\\42|[\40\47A-Za-z0-9_/\.\-\%])*{DOUBLE_QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 
 .                                                    printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
 %%

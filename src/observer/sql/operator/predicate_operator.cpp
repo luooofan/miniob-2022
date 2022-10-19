@@ -104,10 +104,11 @@ bool PredicateOperator::do_predicate(Tuple &tuple)
       replace_all(raw_reg, "%", "[^']*");
       std::regex reg(raw_reg.c_str(), std::regex_constants::ECMAScript | std::regex_constants::icase);
       bool res = std::regex_match((const char *)left_cell.data(), reg);
-      if (LIKE_OP == comp) {
-        return res;
+      // std::cout << (const char *)left_cell.data() << " " << raw_reg << " " << res << std::endl;
+      if ((LIKE_OP == comp && !res) || (NOT_LIKE_OP == comp && res)) {
+        return false;
       }
-      return !res;
+      continue;
     }
 
     // for compare.
