@@ -292,21 +292,27 @@ ID_get:
 
 	
 insert:				/*insert   语句的语法解析树*/
-    INSERT INTO ID VALUES LBRACE value value_list RBRACE SEMICOLON 
+    INSERT INTO ID VALUES row_value row_value_list SEMICOLON 
 		{
-			// CONTEXT->values[CONTEXT->value_length++] = *$6;
-
-			CONTEXT->ssql->flag=SCF_INSERT;//"insert";
-			// CONTEXT->ssql->sstr.insertion.relation_name = $3;
-			// CONTEXT->ssql->sstr.insertion.value_num = CONTEXT->value_length;
-			// for(i = 0; i < CONTEXT->value_length; i++){
-			// 	CONTEXT->ssql->sstr.insertion.values[i] = CONTEXT->values[i];
-      // }
-			inserts_init(&CONTEXT->ssql->sstr.insertion, $3, CONTEXT->values, CONTEXT->value_length);
-
-      //临时变量清零
-      CONTEXT->value_length=0;
+			CONTEXT->ssql->flag=SCF_INSERT;		//"insert";
+			inserts_init(&CONTEXT->ssql->sstr.insertion, $3);
     }
+
+row_value_list:
+		/* EMPTY */
+		| COMMA row_value row_value_list {
+			// Do Nothing
+		}
+row_value:
+		LBRACE value value_list RBRACE
+		{
+			if (0 != inserts_data_init(&CONTEXT->ssql->sstr.insertion, CONTEXT->values, CONTEXT->value_length)) {
+				return -1;
+			}
+			//临时变量清零
+			memset(CONTEXT->values, 0, sizeof(CONTEXT->values));
+      CONTEXT->value_length=0;
+		}
 
 value_list:
     /* empty */
