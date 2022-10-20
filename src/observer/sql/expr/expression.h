@@ -14,7 +14,9 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cassert>
 #include <string.h>
+#include "sql/parser/parse_defs.h"
 #include "storage/common/field.h"
 #include "sql/expr/tuple_cell.h"
 
@@ -24,6 +26,7 @@ enum class ExprType {
   NONE,
   FIELD,
   VALUE,
+  BINARY,
 };
 
 class Expression {
@@ -104,4 +107,35 @@ public:
 
 private:
   TupleCell tuple_cell_;
+};
+
+class BinaryExpression : public Expression {
+public:
+  BinaryExpression() = default;
+  BinaryExpression(ExpOp op, Expression *left_expr, Expression *right_expr)
+      : op_(op), left_expr_(left_expr), right_expr_(right_expr)
+  {}
+
+  virtual ~BinaryExpression() = default;
+
+  RC get_value(const Tuple &tuple, TupleCell &cell) const override
+  {
+    RC rc = left_expr_->get_value(tuple, cell);
+    TupleCell tmp_cell;
+    rc = right_expr_->get_value(tuple, tmp_cell);
+    // calculate
+    assert(cell.attr_type() != DATES && tmp_cell.attr_type() != DATES);
+    assert(cell.attr_type() != CHARS && tmp_cell.attr_type() != CHARS);
+    // at first, convert to float
+    return rc;
+  }
+  ExprType type() const override
+  {
+    return ExprType::BINARY;
+  }
+
+private:
+  ExpOp op_ = NO_EXP_OP;
+  Expression *left_expr_ = nullptr;
+  Expression *right_expr_ = nullptr;
 };

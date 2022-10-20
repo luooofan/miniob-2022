@@ -16,43 +16,13 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "rc.h"
 #include "common/log/log.h"
+#include "sql/parser/parse_defs.h"
 
 RC parse(char *st, Query *sqln);
 
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
-
-void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
-{
-  expr->type = 0;
-  expr->uexp = u_expr;
-}
-void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
-{
-  expr->type = 1;
-  expr->bexp = b_expr;
-}
-void expr_destroy(Expr *expr)
-{
-  if (expr->type) {
-    binary_expr_destroy(expr->bexp);
-  } else {
-    unary_expr_destory(expr->uexp);
-  }
-}
-
-void binary_expr_init(BinaryExpr *expr, CompOp op, Expr *left_expr, Expr *right_expr)
-{
-  expr->left = left_expr;
-  expr->right = right_expr;
-  expr->comp = op;
-}
-void binary_expr_destory(BinaryExpr *expr)
-{
-  expr_destroy(expr->left);
-  expr_destroy(expr->right);
-}
 
 void unary_expr_init_value(UnaryExpr *expr, Value *value)
 {
@@ -64,10 +34,54 @@ void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr)
   expr->is_attr = 1;
   expr->attr = *relation_attr;
 }
-
-void unary_expr_destory(UnaryExpr *expr)
+void unary_expr_destroy(UnaryExpr *expr)
 {
   return;
+}
+
+void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_expr)
+{
+  expr->left = left_expr;
+  expr->right = right_expr;
+  expr->op = op;
+}
+void binary_expr_destroy(BinaryExpr *expr)
+{
+  expr_destroy(expr->left);
+  expr_destroy(expr->right);
+}
+
+void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *right_expr)
+{
+  condition->left = left_expr;
+  condition->right = right_expr;
+  condition->comp = op;
+}
+void condition_destroy(Condition *condition)
+{
+  expr_destroy(condition->left);
+  expr_destroy(condition->right);
+}
+
+void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
+{
+  expr->type = 0;
+  expr->uexp = u_expr;
+  expr->bexp = NULL;
+}
+void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
+{
+  expr->type = 1;
+  expr->bexp = b_expr;
+  expr->uexp = NULL;
+}
+void expr_destroy(Expr *expr)
+{
+  if (expr->type) {
+    binary_expr_destroy(expr->bexp);
+  } else {
+    unary_expr_destroy(expr->uexp);
+  }
 }
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name)
@@ -139,38 +153,6 @@ void value_destroy(Value *value)
   value->data = nullptr;
 }
 
-void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
-    int right_is_attr, RelAttr *right_attr, Value *right_value)
-{
-  condition->comp = comp;
-  condition->left_is_attr = left_is_attr;
-  if (left_is_attr) {
-    condition->left_attr = *left_attr;
-  } else {
-    condition->left_value = *left_value;
-  }
-
-  condition->right_is_attr = right_is_attr;
-  if (right_is_attr) {
-    condition->right_attr = *right_attr;
-  } else {
-    condition->right_value = *right_value;
-  }
-}
-void condition_destroy(Condition *condition)
-{
-  if (condition->left_is_attr) {
-    relation_attr_destroy(&condition->left_attr);
-  } else {
-    value_destroy(&condition->left_value);
-  }
-  if (condition->right_is_attr) {
-    relation_attr_destroy(&condition->right_attr);
-  } else {
-    value_destroy(&condition->right_value);
-  }
-}
-
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length)
 {
   attr_info->name = strdup(name);
@@ -193,7 +175,7 @@ void selects_append_relation(Selects *selects, const char *relation_name)
   selects->relations[selects->relation_num++] = strdup(relation_name);
 }
 
-void selects_append_conditions(Selects *selects, Expr *conditions[], size_t condition_num)
+void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)
 {
   assert(condition_num <= sizeof(selects->conditions) / sizeof(selects->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {

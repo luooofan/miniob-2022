@@ -17,8 +17,7 @@ typedef struct ParserContext {
   size_t from_length;
   size_t value_length;
   Value values[MAX_NUM];
-  Expr* conditions[MAX_NUM];
-  OrderBy orderbys[MAX_NUM];
+  Condition conditions[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -78,8 +77,8 @@ ParserContext *get_context(yyscan_t scanner)
         TABLE
         TABLES
         INDEX
-		INNER
-		JOIN
+        INNER
+        JOIN
         SELECT
         DESC
         SHOW
@@ -113,6 +112,10 @@ ParserContext *get_context(yyscan_t scanner)
         NOT
         LIKE
 				UNIQUE
+        ADD
+        SUB
+        MUL
+        DIV
         EQ
         LT
         GT
@@ -126,6 +129,8 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Value *value1;
   struct _UnaryExpr* uexp1;
   struct _Expr* exp1;
+  struct _Expr* exp2;
+  struct _Expr* exp3;
   char *string;
   int number;
   float floats;
@@ -143,11 +148,12 @@ ParserContext *get_context(yyscan_t scanner)
 //非终结符
 
 %type <number> type;
+%type <condition1> condition;
 %type <value1> value;
 %type <number> number;
-%type <uexp1> unary_expr;
-%type <exp1> mul_expr;
-%type <exp1> add_expr;
+%type <exp1> unary_expr;
+%type <exp2> mul_expr;
+%type <exp3> add_expr;
 
 %%
 
@@ -361,73 +367,77 @@ value_list:
 
 mul_expr:
     unary_expr {
-		Expr * expr = malloc(sizeof(Expr));
-		expr_init_unary(expr, $1);
-		$$ = expr;
+      $$ = $1;
     }
     | mul_expr STAR unary_expr {
-		Expr * expr = malloc(sizeof(Expr));
-		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
-		binary_expr_init(b_expr, MUL, $1, $3);
-		expr_init_binary(expr, b_expr);
-		$$ = expr;
+      Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, MUL_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
     }
     | mul_expr DIV unary_expr {
     	Expr * expr = malloc(sizeof(Expr));
-		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
-		binary_expr_init(b_expr, DIV, $1, $3);
-		expr_init_binary(expr, b_expr);
-		$$ = expr;
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, DIV_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
     }
-	;
+    ;
 
 add_expr:
     mul_expr { $$ = $1; }
     | add_expr ADD mul_expr {
     	Expr * expr = malloc(sizeof(Expr));
-		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
-		binary_expr_init(b_expr, ADD, $1, $3);
-		expr_init_binary(expr, b_expr);
-		$$ = expr;
-
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, ADD_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
     }
     | add_expr SUB mul_expr {
     	Expr * expr = malloc(sizeof(Expr));
-		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
-		binary_expr_init(b_expr, SUB, $1, $3);
-		expr_init_binary(expr, b_expr);
-		$$ = expr;
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, SUB_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
     }
+    ;
 
 condition:
     add_expr comOp add_expr{
-		Expr * expr = malloc(sizeof(Expr));
-		BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
-		binary_expr_init(b_expr, CONTEXT->comp, $1, $3);
-		expr_init_binary(expr, b_expr);
-		CONTEXT->conditions[CONTEXT->condition_length++]= expr;
-	}
+      Condition expr;
+      condition_init(&expr, CONTEXT->comp, $1, $3);
+      CONTEXT->conditions[CONTEXT->condition_length++] = expr;
+    }
+    ;
 
 unary_expr:
     value {
-		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
-		unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
-		$$ = u_expr;
+    	Expr *expr = malloc(sizeof(Expr));
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
     }
     | ID {
-		RelAttr attr;
-		relation_attr_init(&attr, NULL, $1);
-		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
-		unary_expr_init_attr(u_expr, &attr);
-		$$ = u_expr;
+    	Expr *expr = malloc(sizeof(Expr));
+      RelAttr attr;
+      relation_attr_init(&attr, NULL, $1);
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_attr(u_expr, &attr);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
     }
     | ID DOT ID {
-		RelAttr attr;
-		relation_attr_init(&attr, $1, $3);
-		UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
-		unary_expr_init_attr(u_expr, &attr);
-		$$ = u_expr;
-    };
+    	Expr *expr = malloc(sizeof(Expr));
+      RelAttr attr;
+      relation_attr_init(&attr, $1, $3);
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_attr(u_expr, &attr);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
+    }
+    ;
 
 value:
     NUMBER{	

@@ -39,12 +39,11 @@ typedef enum {
   GREAT_THAN,   //">"         5
   LIKE_OP,      //"like"      6
   NOT_LIKE_OP,  //"not like"  7
-  ADD,
-  SUB,
-  MUL,
-  DIV,
   NO_OP
 } CompOp;
+
+typedef enum { NO_EXP_OP, ADD_OP, SUB_OP, MUL_OP, DIV_OP, EXP_OP_NUM } ExpOp;
+typedef enum { UNARY, BINARY } ExpType;
 
 // 属性值类型
 typedef enum { UNDEFINED, CHARS, INTS, DATES, FLOATS } AttrType;
@@ -61,41 +60,34 @@ typedef struct _UnaryExpr {
   RelAttr attr;
 } UnaryExpr;
 
-struct _Expr;
-typedef struct _BinaryExpr {
-  CompOp comp;
-  _Expr *left;
-  _Expr *right;
-} BinaryExpr;
-
+typedef struct _BinaryExpr BinaryExpr;
 typedef struct _Expr {
   int type;  // 0 1 2(func)
   UnaryExpr *uexp;
   BinaryExpr *bexp;
 } Expr;
 
+typedef struct _BinaryExpr {
+  ExpOp op;
+  Expr *left;
+  Expr *right;
+} BinaryExpr;
+
 typedef struct _Condition {
-  int left_is_attr;    // TRUE if left-hand side is an attribute
-                       // 1时，操作符左边是属性名，0时，是属性值
-  Value left_value;    // left-hand side value if left_is_attr = FALSE
-  RelAttr left_attr;   // left-hand side attribute
-  CompOp comp;         // comparison operator
-  int right_is_attr;   // TRUE if right-hand side is an attribute
-                       // 1时，操作符右边是属性名，0时，是属性值
-  RelAttr right_attr;  // right-hand side attribute if right_is_attr = TRUE 右边的属性
-  Value right_value;   // right-hand side value if right_is_attr = FALSE
+  CompOp comp;
+  Expr *left;
+  Expr *right;
 } Condition;
 
 // struct of select
 typedef struct {
-  size_t attr_num;              // Length of attrs in Select clause
-  RelAttr attributes[MAX_NUM];  // attrs in Select clause
-  size_t relation_num;          // Length of relations in Fro clause
-  char *relations[MAX_NUM];     // relations in From clause
-  size_t condition_num;         // Length of conditions in Where clause
-  Expr *conditions[MAX_NUM];    // conditions in Where clause
+  size_t attr_num;                // Length of attrs in Select clause
+  RelAttr attributes[MAX_NUM];    // attrs in Select clause
+  size_t relation_num;            // Length of relations in Fro clause
+  char *relations[MAX_NUM];       // relations in From clause
+  size_t condition_num;           // Length of conditions in Where clause
+  Condition conditions[MAX_NUM];  // conditions in Where clause
 } Selects;
-
 // struct of insert
 typedef struct {
   const Value *values;
@@ -211,16 +203,20 @@ typedef struct Query {
 #ifdef __cplusplus
 extern "C" {
 #endif  // __cplusplus
-void binary_expr_init(BinaryExpr *expr, CompOp op, Expr *left_expr, Expr *right_expr);
-void binary_expr_destory(BinaryExpr *expr);
+
+void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr);
+void unary_expr_init_value(UnaryExpr *expr, Value *value);
+void unary_expr_destroy(UnaryExpr *expr);
+
+void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_expr);
+void binary_expr_destroy(BinaryExpr *expr);
 
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
 void expr_destroy(Expr *expr);
 
-void unary_expr_init_value(UnaryExpr *expr, Value *value);
-void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr);
-void unary_expr_destory(UnaryExpr *expr);
+void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *right_expr);
+void condition_destroy(Condition *condition);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
 void relation_attr_destroy(RelAttr *relation_attr);
@@ -230,10 +226,6 @@ void value_init_float(Value *value, float v);
 void value_init_string(Value *value, const char *v);
 int value_init_date(Value *value, const char *year, const char *month, const char *day);
 void value_destroy(Value *value);
-
-void condition_init(Condition *condition, CompOp comp, int left_is_attr, RelAttr *left_attr, Value *left_value,
-    int right_is_attr, RelAttr *right_attr, Value *right_value);
-void condition_destroy(Condition *condition);
 
 void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t length);
 void attr_info_destroy(AttrInfo *attr_info);
