@@ -111,6 +111,7 @@ ParserContext *get_context(yyscan_t scanner)
         INFILE
         NOT
         LIKE
+				UNIQUE
         EQ
         LT
         GT
@@ -225,19 +226,39 @@ desc_table:
     ;
 
 show_index:
-		SHOW INDEX FROM ID SEMICOLON {
+		SHOW INDEX FROM ID SEMICOLON 
+		{
 			CONTEXT->ssql->flag = SCF_SHOW_INDEX;
 			desc_table_init(&CONTEXT->ssql->sstr.desc_table, $4);
 		}
 		;
 
 create_index:		/*create index 语句的语法解析树*/
-    CREATE INDEX ID ON ID LBRACE ID RBRACE SEMICOLON 
+    CREATE INDEX ID ON ID LBRACE id id_list RBRACE SEMICOLON 
 		{
-			CONTEXT->ssql->flag = SCF_CREATE_INDEX;//"create_index";
-			create_index_init(&CONTEXT->ssql->sstr.create_index, $3, $5, $7);
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;			//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, false, $3, $5);
+		}
+		|CREATE UNIQUE INDEX ID ON ID LBRACE id id_list RBRACE SEMICOLON 
+		{
+			CONTEXT->ssql->flag = SCF_CREATE_INDEX;			//"create_index";
+			create_index_init(&CONTEXT->ssql->sstr.create_index, true, $4, $6);
 		}
     ;
+
+id_list:
+		/* EMPTY */
+		|COMMA id id_list 
+		{
+			/* Do Nothing */
+		}
+		;
+id:
+	ID 
+	{
+		create_index_append_attribute(&CONTEXT->ssql->sstr.create_index, $1);
+	}
+	;
 
 drop_index:			/*drop index 语句的语法解析树*/
     DROP INDEX ID  SEMICOLON 
@@ -318,7 +339,7 @@ row_value_list:
 row_value:
 		LBRACE value value_list RBRACE
 		{
-			if (0 != inserts_data_init(&CONTEXT->ssql->sstr.insertion, CONTEXT->values, CONTEXT->value_length)) {
+			if (0 != inserts_append_data(&CONTEXT->ssql->sstr.insertion, CONTEXT->values, CONTEXT->value_length)) {
 				return -1;
 			}
 			//临时变量清零

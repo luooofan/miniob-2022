@@ -162,8 +162,21 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
+  // for (const IndexMeta &index : indexes_) {
+  //   if (0 == strcmp(index.field(), field)) {
+  //     return &index;
+  //   }
+  // }
+  std::string field_name = field;
+  std::vector<std::string> fields;
+  fields.push_back(field_name);
+  return find_index_by_field(fields);
+}
+
+const IndexMeta *TableMeta::find_index_by_field(std::vector<std::string> field) const
+{
   for (const IndexMeta &index : indexes_) {
-    if (0 == strcmp(index.field(), field)) {
+    if (field == *index.field()) {
       return &index;
     }
   }
@@ -321,19 +334,17 @@ void TableMeta::desc(std::ostream &os) const
 
 void TableMeta::show_index(std::ostream &os) const
 {
-  os << "Table"
+  os << "TABLE"
      << " | "
-     << "Non_unique"
+     << "NON_UNIQUE"
      << " | "
-     << "Key_name"
+     << "KEY_NAME"
      << " | "
-     << "Seq_in_index"
+     << "SQL_IN_INDEX"
      << " | "
-     << "Column_name" << std::endl;
+     << "COLUMN_NAME" << std::endl;
 
   for (const auto &index : indexes_) {
-    os << name_ << " | ";
     index.show(os);
-    os << std::endl;
   }
 }

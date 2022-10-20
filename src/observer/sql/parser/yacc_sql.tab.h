@@ -88,27 +88,28 @@ enum yytokentype {
   INFILE = 295,
   NOT = 296,
   LIKE = 297,
-  EQ = 298,
-  LT = 299,
-  GT = 300,
-  LE = 301,
-  GE = 302,
-  NE = 303,
-  NUMBER = 304,
-  FLOAT = 305,
-  ID = 306,
-  PATH = 307,
-  SSS = 308,
-  STAR = 309,
-  STRING_V = 310,
-  DATE_STR = 311
+  UNIQUE = 298,
+  EQ = 299,
+  LT = 300,
+  GT = 301,
+  LE = 302,
+  GE = 303,
+  NE = 304,
+  NUMBER = 305,
+  FLOAT = 306,
+  ID = 307,
+  PATH = 308,
+  SSS = 309,
+  STAR = 310,
+  STRING_V = 311,
+  DATE_STR = 312
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 121 "yacc_sql.y"
+#line 122 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -118,7 +119,7 @@ union YYSTYPE {
   float floats;
   char *position;
 
-#line 124 "yacc_sql.tab.h"
+#line 125 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1

@@ -638,7 +638,9 @@ RC ExecuteStage::do_create_index(SQLStageEvent *sql_event)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  RC rc = table->create_index(nullptr, create_index.index_name, create_index.attribute_name);
+  RC rc = table->create_index(
+      nullptr, create_index.unique, create_index.index_name, create_index.attribute_count, create_index.attribute_name);
+
   sql_event->session_event()->set_response(rc == RC::SUCCESS ? "SUCCESS\n" : "FAILURE\n");
   return rc;
 }
@@ -681,6 +683,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
 {
   RC rc = RC::SUCCESS;
   Query *query = sql_event->query();
+  SessionEvent *session_event = sql_event->session_event();
   Db *db = sql_event->session_event()->session()->get_current_db();
   const char *table_name = query->sstr.desc_table.relation_name;
   Table *table = db->find_table(table_name);
@@ -688,7 +691,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
   if (table != nullptr) {
     table->table_meta().show_index(ss);
   } else {
-    ss << "No such table: " << table_name << std::endl;
+    session_event->set_response("FAILURE\n");
   }
   sql_event->session_event()->set_response(ss.str().c_str());
   return rc;
