@@ -87,8 +87,16 @@ RC FilterStmt::create_expression(Db *db, Table *default_table, std::unordered_ma
     BinaryExpr *bexp = expr->bexp;
     Expression *tmp1 = nullptr;
     Expression *tmp2 = nullptr;
-    create_expression(db, default_table, tables, bexp->left, tmp1);
-    create_expression(db, default_table, tables, bexp->right, tmp2);
+    rc = create_expression(db, default_table, tables, bexp->left, tmp1);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("BinaryExpression create left expression failed");
+      return rc;
+    }
+    rc = create_expression(db, default_table, tables, bexp->right, tmp2);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("BinaryExpression create right expression failed");
+      return rc;
+    }
     expression = new BinaryExpression(bexp->op, tmp1, tmp2);
     return RC::SUCCESS;
   }
@@ -122,37 +130,16 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   Expression *left = nullptr;
   Expression *right = nullptr;
 
-  auto create_expression = [&](Expr *expr, Expression *&res) -> RC {
-    assert(ExpType::BINARY != expr->type);
-    if (ExpType::BINARY == expr->type) {
-      BinaryExpr *bexp = expr->bexp;
-      Expression *tmp1 = nullptr;
-      Expression *tmp2 = nullptr;
-      // TODO
-      // create_expression(bexp->left, tmp1);
-      // create_expression(bexp->right, tmp2);
-      // res = new BinaryExpression(bexp->op, tmp1, tmp2);
-      return RC::SUCCESS;
-    }
-    UnaryExpr *uexp = expr->uexp;
-    if (uexp->is_attr) {
-      Table *table = nullptr;
-      const FieldMeta *field = nullptr;
-      rc = get_table_and_field(db, default_table, tables, uexp->attr, table, field);
-      if (rc != RC::SUCCESS) {
-        LOG_WARN("cannot find attr");
-        return rc;
-      }
-      res = new FieldExpr(table, field);
-    } else {
-      res = new ValueExpr(uexp->value);
-    }
-    return RC::SUCCESS;
-  };
-
-  create_expression(condition.left, left);
-  create_expression(condition.right, right);
-
+  rc = create_expression(db, default_table, tables, condition.left, left);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("filter unit create left expression failed");
+    return rc;
+  }
+  rc = create_expression(db, default_table, tables, condition.right, right);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("filter unit create right expression failed");
+    return rc;
+  }
   filter_unit = new FilterUnit;
   filter_unit->set_comp(comp);
   filter_unit->set_left(left);

@@ -27,6 +27,11 @@ public:
   TupleCell(AttrType attr_type, char *data) : attr_type_(attr_type), data_(data)
   {}
 
+  static const TupleCell add(const TupleCell &left, const TupleCell &right);
+  static const TupleCell sub(const TupleCell &left, const TupleCell &right);
+  static const TupleCell mul(const TupleCell &left, const TupleCell &right);
+  static const TupleCell div(const TupleCell &left, const TupleCell &right);
+
   void set_type(AttrType type)
   {
     this->attr_type_ = type;

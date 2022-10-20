@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <cassert>
 #include <string.h>
+#include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/common/field.h"
 #include "sql/expr/tuple_cell.h"
@@ -118,14 +119,33 @@ public:
 
   virtual ~BinaryExpression() = default;
 
-  RC get_value(const Tuple &tuple, TupleCell &cell) const override
+  RC get_value(const Tuple &tuple, TupleCell &final_cell) const override
   {
-    RC rc = left_expr_->get_value(tuple, cell);
-    TupleCell tmp_cell;
-    rc = right_expr_->get_value(tuple, tmp_cell);
+    TupleCell left_cell;
+    TupleCell right_cell;
+    RC rc = left_expr_->get_value(tuple, left_cell);
+    rc = right_expr_->get_value(tuple, right_cell);
     // calculate
-    assert(cell.attr_type() != DATES && tmp_cell.attr_type() != DATES);
-    assert(cell.attr_type() != CHARS && tmp_cell.attr_type() != CHARS);
+    assert(left_cell.attr_type() != DATES && right_cell.attr_type() != DATES);
+    assert(left_cell.attr_type() != CHARS && right_cell.attr_type() != CHARS);
+    switch (op_) {
+      case ADD_OP:
+        final_cell = TupleCell::add(left_cell, right_cell);
+        break;
+      case SUB_OP:
+        final_cell = TupleCell::sub(left_cell, right_cell);
+        break;
+      case MUL_OP:
+        final_cell = TupleCell::mul(left_cell, right_cell);
+        break;
+      case DIV_OP:
+        final_cell = TupleCell::div(left_cell, right_cell);
+        break;
+      default:
+        LOG_ERROR("unsupported calculate op");
+        break;
+    }
+
     // at first, convert to float
     return rc;
   }
@@ -138,4 +158,5 @@ private:
   ExpOp op_ = NO_EXP_OP;
   Expression *left_expr_ = nullptr;
   Expression *right_expr_ = nullptr;
+  TupleCell expr_result_;
 };

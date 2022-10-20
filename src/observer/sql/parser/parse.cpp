@@ -24,6 +24,46 @@ RC parse(char *st, Query *sqln);
 extern "C" {
 #endif  // __cplusplus
 
+void attr_print(RelAttr *attr, int indent)
+{
+  for (int i = 0; i < indent; i++) {
+    printf("\t");
+  }
+  if (NULL != attr->relation_name) {
+    printf("%s ", attr->relation_name);
+  }
+  printf("%s\n", attr->attribute_name);
+}
+
+void value_print(Value *value, int indent)
+{
+  for (int i = 0; i < indent; i++) {
+    printf("\t");
+  }
+  switch (value->type) {
+    case INTS:
+      printf("%d ", *(int *)(value->data));
+      break;
+    case FLOATS:
+      printf("%f ", *(float *)(value->data));
+      break;
+    case CHARS:
+      printf("%s ", (char *)value->data);
+      break;
+    default:
+      break;
+  }
+  printf("\n");
+}
+
+void unary_expr_print(UnaryExpr *expr, int indent)
+{
+  if (expr->is_attr) {
+    attr_print(&(expr->attr), indent);
+  } else {
+    value_print(&(expr->value), indent);
+  }
+}
 void unary_expr_init_value(UnaryExpr *expr, Value *value)
 {
   expr->is_attr = 0;
@@ -39,6 +79,15 @@ void unary_expr_destroy(UnaryExpr *expr)
   return;
 }
 
+void binary_expr_print(BinaryExpr *expr, int indent)
+{
+  for (int i = 0; i < indent; i++) {
+    printf("\t");
+  }
+  printf("%d\n", expr->op);
+  expr_print(expr->left, indent + 1);
+  expr_print(expr->right, indent + 1);
+}
 void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_expr)
 {
   expr->left = left_expr;
@@ -51,6 +100,15 @@ void binary_expr_destroy(BinaryExpr *expr)
   expr_destroy(expr->right);
 }
 
+void condition_print(Condition *condition, int indent)
+{
+  for (int i = 0; i < indent; i++) {
+    printf("\t");
+  }
+  printf("%d\n", condition->comp);
+  expr_print(condition->left, indent + 1);
+  expr_print(condition->right, indent + 1);
+}
 void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *right_expr)
 {
   condition->left = left_expr;
@@ -63,6 +121,14 @@ void condition_destroy(Condition *condition)
   expr_destroy(condition->right);
 }
 
+void expr_print(Expr *expr, int indent)
+{
+  if (expr->type == 0) {
+    unary_expr_print(expr->uexp, indent);
+  } else {
+    binary_expr_print(expr->bexp, indent);
+  }
+}
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
 {
   expr->type = 0;
@@ -479,8 +545,11 @@ RC parse(const char *st, Query *sqln)
 {
   sql_parse(st, sqln);
 
-  if (sqln->flag == SCF_ERROR)
+  if (sqln->flag == SCF_ERROR) {
+    printf("sql parse error");
     return SQL_SYNTAX;
+  }
+
   else
     return SUCCESS;
 }

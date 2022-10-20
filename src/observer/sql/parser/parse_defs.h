@@ -204,17 +204,24 @@ typedef struct Query {
 extern "C" {
 #endif  // __cplusplus
 
+void attr_print(RelAttr *attr, int indent);
+void value_print(Value *value, int indent);
+
+void unary_expr_print(UnaryExpr *expr, int indent);
 void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr);
 void unary_expr_init_value(UnaryExpr *expr, Value *value);
 void unary_expr_destroy(UnaryExpr *expr);
 
+void binary_expr_print(BinaryExpr *expr, int indent);
 void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_expr);
 void binary_expr_destroy(BinaryExpr *expr);
 
+void expr_print(Expr *expr, int indent);
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
 void expr_destroy(Expr *expr);
 
+void condition_print(Condition *condition, int indent);
 void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *right_expr);
 void condition_destroy(Condition *condition);
 

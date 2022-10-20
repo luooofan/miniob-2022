@@ -407,6 +407,7 @@ condition:
     add_expr comOp add_expr{
       Condition expr;
       condition_init(&expr, CONTEXT->comp, $1, $3);
+      condition_print(&expr, 0);
       CONTEXT->conditions[CONTEXT->condition_length++] = expr;
     }
     ;
