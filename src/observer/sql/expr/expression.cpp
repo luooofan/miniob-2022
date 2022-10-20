@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/07/05.
 //
 
+#include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
 
 RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell) const
@@ -23,4 +24,9 @@ RC ValueExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
   cell = tuple_cell_;
   return RC::SUCCESS;
+}
+RC AggrFuncExpr::get_value(const Tuple &tuple, TupleCell &cell) const
+{
+  // do convert
+  return tuple.find_cell(field_, cell);
 }

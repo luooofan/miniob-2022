@@ -28,6 +28,7 @@ enum class ExprType {
   FIELD,
   VALUE,
   BINARY,
+  AGGRFUNC,
 };
 
 class Expression {
@@ -231,4 +232,73 @@ private:
   Expression *right_expr_ = nullptr;
   TupleCell expr_result_;
   bool is_minus_ = false;
+};
+
+class AggrFuncExpr : public Expression {
+public:
+  AggrFuncExpr() = default;
+  AggrFuncExpr(const Table *table, const FieldMeta *field, AggrFuncType type) : type_(type), field_(table, field)
+  {}
+
+  virtual ~AggrFuncExpr() = default;
+
+  ExprType type() const override
+  {
+    return ExprType::AGGRFUNC;
+  }
+
+  Field &field()
+  {
+    return field_;
+  }
+
+  const Field &field() const
+  {
+    return field_;
+  }
+
+  const Table *table() const
+  {
+    return field_.table();
+  }
+
+  const char *table_name() const
+  {
+    return field_.table_name();
+  }
+
+  const char *field_name() const
+  {
+    return field_.field_name();
+  }
+
+  RC get_value(const Tuple &tuple, TupleCell &cell) const override;
+
+  AttrType get_return_type()
+  {
+    switch (type_) {
+      case AggrFuncType::MAX:
+      case AggrFuncType::MIN:
+      case AggrFuncType::SUM:
+      case AggrFuncType::AVG:
+        return field_.meta()->type();
+        break;
+      case AggrFuncType::COUNT:
+        return INTS;
+        break;
+      default:
+        return UNDEFINED;
+        break;
+    }
+    return UNDEFINED;
+  }
+
+  AggrFuncType get_aggr_func_type() const
+  {
+    return type_;
+  }
+
+private:
+  AggrFuncType type_;
+  Field field_;
 };

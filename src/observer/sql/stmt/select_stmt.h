@@ -17,6 +17,8 @@ See the Mulan PSL v2 for more details. */
 #include <vector>
 
 #include "rc.h"
+#include "sql/parser/parse_defs.h"
+#include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "storage/common/field.h"
 
@@ -57,6 +59,10 @@ public:
   {
     return orderby_stmt_;
   }
+  GroupByStmt *groupby_stmt() const
+  {
+    return groupby_stmt_;
+  }
 
 private:
   // own these expression
@@ -65,4 +71,5 @@ private:
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
   OrderByStmt *orderby_stmt_ = nullptr;
+  GroupByStmt *groupby_stmt_ = nullptr;
 };

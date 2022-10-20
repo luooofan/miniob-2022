@@ -21,6 +21,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse.h"
 #include "sql/expr/tuple_cell.h"
 #include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
 
 class Table;
@@ -358,4 +359,147 @@ public:
 private:
   Tuple *left_tup_;
   Tuple *right_tup_;
+};
+
+class GroupTuple : public Tuple {
+public:
+  GroupTuple() = default;
+  virtual ~GroupTuple()
+  {
+    for (AggrFuncExpr *expr : aggr_exprs_)
+      delete expr;
+    aggr_exprs_.clear();
+  }
+
+  void set_tuple(Tuple *tuple)
+  {
+    this->tuple_ = tuple;
+  }
+
+  void add_aggr_expr(AggrFuncExpr *expr)
+  {
+    aggr_exprs_.emplace_back(expr);
+  }
+
+  AttrType get_return_type(const Field &field) const
+  {
+    for (auto expr : aggr_exprs_) {
+      assert(ExprType::AGGRFUNC == expr->type());
+      Field &aggr_field = static_cast<AggrFuncExpr *>(expr)->field();
+      if (field.equal_to(aggr_field)) {
+        return expr->get_return_type();
+      }
+    }
+    return field.meta()->type();
+  }
+
+  int cell_num() const override
+  {
+    return tuple_->cell_num();
+  }
+
+  RC cell_at(int index, TupleCell &cell) const override
+  {
+    if (tuple_ == nullptr) {
+      return RC::GENERIC_ERROR;
+    }
+    return tuple_->cell_at(index, cell);
+  }
+
+  RC find_cell(const Field &field, TupleCell &cell) const override
+  {
+    RC rc = tuple_->find_cell(field, cell);
+    cell.set_type(get_return_type(field));
+    return rc;
+  }
+
+  void get_record(CompoundRecord &record) const override
+  {
+    tuple_->get_record(record);
+  }
+
+  void set_record(CompoundRecord &record) override
+  {
+    tuple_->set_record(record);
+  }
+
+  void set_right_record(CompoundRecord &record) override
+  {
+    tuple_->set_right_record(record);
+  }
+
+  RC cell_spec_at(int index, const TupleCellSpec *&spec) const override
+  {
+    if (index < 0 || index >= cell_num()) {
+      return RC::INVALID_ARGUMENT;
+    }
+    return tuple_->cell_spec_at(index, spec);
+  }
+
+  const std::vector<AggrFuncExpr *> &get_aggr_exprs() const
+  {
+    return aggr_exprs_;
+  }
+
+  void do_aggregate()
+  {
+    count_++;
+    TupleCell tmp;
+    for (int i = 0; i < aggr_exprs_.size(); ++i) {
+      const AggrFuncExpr *expr = aggr_exprs_[i];
+      if (AggrFuncType::COUNT == expr->get_aggr_func_type()) {
+        continue;
+      }
+      expr->get_value(*tuple_, tmp);
+      switch (expr->get_aggr_func_type()) {
+        case AggrFuncType::MIN:
+          aggr_results_[i] = TupleCell::min(aggr_results_[i], tmp);
+          break;
+        case AggrFuncType::MAX:
+          aggr_results_[i] = TupleCell::max(aggr_results_[i], tmp);
+          break;
+        default:
+          LOG_ERROR("Unsupported AggrFuncType");
+          break;
+      }
+    }
+  }
+  void do_aggregate_done()
+  {
+    for (int i = 0; i < aggr_exprs_.size(); ++i) {
+      const AggrFuncExpr *expr = aggr_exprs_[i];
+      TupleCell &res = aggr_results_[i];
+      switch (expr->get_aggr_func_type()) {
+        case AggrFuncType::COUNT: {
+          res.set_type(AttrType::INTS);
+          res.set_length(sizeof(int));
+          memcpy(res.data(), &count_, sizeof(int));
+          break;
+        }
+        case AggrFuncType::AVG: {
+          //
+          // memcpy
+          break;
+        }
+        default:
+          break;
+      }
+    }
+  }
+  void init(const std::vector<AggrFuncExpr *> &aggr_expr)
+  {
+    aggr_results_.reserve(aggr_expr.size());
+    for (auto expr : aggr_expr) {
+      aggr_exprs_.emplace_back(expr);
+      // aggr_results_.emplace_back(TupleCell());
+      // Field &field = expr->field();
+      // TupleCell tmp(field, new char[field.])
+    }
+  }
+
+private:
+  int count_ = 0;
+  std::vector<TupleCell> aggr_results_;
+  std::vector<AggrFuncExpr *> aggr_exprs_;
+  Tuple *tuple_ = nullptr;
 };

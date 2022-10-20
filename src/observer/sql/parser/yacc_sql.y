@@ -18,11 +18,15 @@ typedef struct ParserContext {
   size_t select_length;
   size_t condition_length;
   size_t orderby_length;
+  size_t groupby_length;
+  size_t aggrfunc_length;
   size_t from_length;
   size_t value_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
   OrderBy orderbys[MAX_NUM];
+  GroupBy groupbys[MAX_NUM];
+  AggrFuncExpr aggrfuncs[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -104,7 +108,13 @@ ParserContext *get_context(yyscan_t scanner)
 				DATE_T
         FLOAT_T
 		ORDER
+    GROUP
 		BY
+    MAX
+    MIN
+    SUM
+    AVG
+    COUNT
         HELP
         EXIT
         DOT //QUOTE
@@ -518,7 +528,7 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where opt_order_by SEMICOLON
+    SELECT select_attr FROM ID rel_list where opt_order_by opt_group_by SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
@@ -527,10 +537,13 @@ select:				/*  select 语句的语法解析树*/
 
 			selects_append_orderbys(&CONTEXT->ssql->sstr.selection, CONTEXT->orderbys, CONTEXT->orderby_length);
 
+			selects_append_groupbys(&CONTEXT->ssql->sstr.selection, CONTEXT->groupbys, CONTEXT->groupby_length);
+
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
+			CONTEXT->groupby_length=0;
 			CONTEXT->orderby_length=0;
 			CONTEXT->condition_length=0;
 			CONTEXT->from_length=0;
@@ -688,6 +701,40 @@ sort_list:
 opt_order_by:
 	/* empty */
 	| ORDER BY sort_list
+		{
+
+	}
+	;
+
+groupby_unit:
+	ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		CONTEXT->groupbys[CONTEXT->groupby_length++] = attr;
+	}
+	|
+	ID DOT ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		CONTEXT->groupbys[CONTEXT->groupby_length++] = attr;
+	}
+  ;
+
+groupby_list:
+	groupby_unit COMMA groupby_list
+		{
+			
+	}
+	| groupby_unit
+		{
+			
+	}
+	;
+opt_group_by:
+	/* empty */
+	| GROUP BY groupby_list
 		{
 
 	}

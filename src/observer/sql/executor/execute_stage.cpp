@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/groupby_operator.h"
 #include "sql/operator/operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
@@ -542,6 +543,15 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(top_op);
   top_op = &pred_oper;
+
+  std::vector<AggrFuncExpr *> aggr_exprs;
+  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs);
+  if (nullptr != select_stmt->groupby_stmt()) {
+    group_oper.add_child(top_op);
+    // TODO add sort oper as child
+    top_op = &group_oper;
+  }
+
   SortOperator sort_oper(select_stmt->orderby_stmt());
   if (nullptr != select_stmt->orderby_stmt()) {
     sort_oper.add_child(top_op);

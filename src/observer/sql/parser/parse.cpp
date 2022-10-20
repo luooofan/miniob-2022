@@ -304,6 +304,24 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
   selects->condition_num = condition_num;
 }
 
+void selects_append_aggrfuncs(Selects *selects, AggrFuncType aggrfuncs[], size_t aggrfunc_num)
+{
+  assert(aggrfunc_num <= sizeof(selects->aggrfuncs) / sizeof(selects->aggrfuncs[0]));
+  for (size_t i = 0; i < aggrfunc_num; ++i) {
+    selects->aggrfuncs[i] = aggrfuncs[i];
+  }
+  assert(aggrfunc_num == selects->relation_num);
+}
+
+void selects_append_groupbys(Selects *selects, GroupBy groupbys[], size_t groupby_num)
+{
+  assert(groupby_num <= sizeof(selects->groupbys) / sizeof(selects->groupbys[0]));
+  for (size_t i = 0; i < groupby_num; i++) {
+    selects->groupbys[i] = groupbys[i];
+  }
+  selects->groupby_num = groupby_num;
+}
+
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num)
 {
   assert(orderby_num <= sizeof(selects->orderbys) / sizeof(selects->orderbys[0]));

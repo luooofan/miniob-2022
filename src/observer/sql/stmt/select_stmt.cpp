@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
+#include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/orderby_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "common/log/log.h"
@@ -26,10 +27,21 @@ SelectStmt::~SelectStmt()
     delete filter_stmt_;
     filter_stmt_ = nullptr;
   }
+
   for (auto expr : projects_) {
     delete expr;
   }
   projects_.clear();
+
+  if (nullptr != orderby_stmt_) {
+    delete orderby_stmt_;
+    orderby_stmt_ = nullptr;
+  }
+
+  if (nullptr != groupby_stmt_) {
+    delete groupby_stmt_;
+    groupby_stmt_ = nullptr;
+  }
 }
 
 static void wildcard_fields(Table *table, std::vector<Expression *> &projects)
@@ -190,12 +202,22 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     }
   }
 
+  GroupByStmt *groupby_stmt = nullptr;
+  if (0 != select_sql.groupby_num) {
+    rc = GroupByStmt::create(db, default_table, &table_map, select_sql.groupbys, select_sql.groupby_num, groupby_stmt);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct group by stmt");
+      return rc;
+    }
+  }
+
   // everything alright
   SelectStmt *select_stmt = new SelectStmt();
   select_stmt->tables_.swap(tables);
   select_stmt->projects_.swap(projects);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->orderby_stmt_ = orderby_stmt;
+  select_stmt->groupby_stmt_ = groupby_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;
 }

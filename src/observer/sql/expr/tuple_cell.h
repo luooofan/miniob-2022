@@ -58,6 +58,11 @@ public:
     return data_;
   }
 
+  char *data()
+  {
+    return data_;
+  }
+
   int length() const
   {
     return length_;
@@ -96,6 +101,16 @@ public:
   bool operator>=(const TupleCell &other) const
   {
     return 0 <= compare(other);
+  }
+
+  static const TupleCell &min(const TupleCell &a, const TupleCell &b)
+  {
+    return a <= b ? a : b;
+  }
+
+  static const TupleCell &max(const TupleCell &a, const TupleCell &b)
+  {
+    return a >= b ? a : b;
   }
 
 private:

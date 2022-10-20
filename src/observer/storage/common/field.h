@@ -54,6 +54,10 @@ public:
   {
     this->field_ = field;
   }
+  bool equal_to(const Field &other) const
+  {
+    return true;
+  }
 
 private:
   const Table *table_ = nullptr;
