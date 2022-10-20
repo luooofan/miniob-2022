@@ -79,6 +79,35 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
   return RC::SUCCESS;
 }
 
+RC FilterStmt::create_expression(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+    const Expr *expr, Expression *&expression)
+{
+  RC rc = RC::SUCCESS;
+  if (ExpType::BINARY == expr->type) {
+    BinaryExpr *bexp = expr->bexp;
+    Expression *tmp1 = nullptr;
+    Expression *tmp2 = nullptr;
+    create_expression(db, default_table, tables, bexp->left, tmp1);
+    create_expression(db, default_table, tables, bexp->right, tmp2);
+    expression = new BinaryExpression(bexp->op, tmp1, tmp2);
+    return RC::SUCCESS;
+  }
+  assert(ExpType::UNARY == expr->type);
+  UnaryExpr *uexp = expr->uexp;
+  if (uexp->is_attr) {
+    Table *table = nullptr;
+    const FieldMeta *field = nullptr;
+    rc = get_table_and_field(db, default_table, tables, uexp->attr, table, field);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot find attr");
+      return rc;
+    }
+    expression = new FieldExpr(table, field);
+  } else {
+    expression = new ValueExpr(uexp->value);
+  }
+  return RC::SUCCESS;
+}
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     const Condition &condition, FilterUnit *&filter_unit)
 {
