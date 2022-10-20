@@ -82,6 +82,7 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
     return true;
   }
 
+  // the relation between two filter_units is AND
   for (const FilterUnit *filter_unit : filter_units) {
     Expression *left_expr = filter_unit->left();
     Expression *right_expr = filter_unit->right();
@@ -111,26 +112,7 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
       continue;
     }
 
-    // for compare.
-    float *tmp_left_float = nullptr;
-    float *tmp_right_float = nullptr;
-    DEFER([&]() {
-      if (tmp_left_float)
-        delete tmp_left_float;
-      if (tmp_right_float)
-        delete tmp_right_float;
-    });
-    if (left_type != right_type) {
-      tmp_left_float = (float *)cast_to[left_type][FLOATS]((void *)left_cell.data());
-      std::cout << *tmp_left_float << std::endl;
-      left_cell.set_data((char *)tmp_left_float);
-      left_cell.set_type(FLOATS);
-      tmp_right_float = (float *)cast_to[right_type][FLOATS]((void *)right_cell.data());
-      std::cout << *tmp_right_float << std::endl;
-      right_cell.set_data((char *)tmp_right_float);
-      right_cell.set_type(FLOATS);
-    }
-
+    // for compare: > >= < <= == != <>
     const int compare = left_cell.compare(right_cell);
 
     bool filter_result = false;

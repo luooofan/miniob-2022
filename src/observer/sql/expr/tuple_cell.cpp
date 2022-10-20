@@ -13,9 +13,11 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/expr/tuple_cell.h"
+#include "common/lang/defer.h"
 #include "storage/common/field.h"
 #include "common/log/log.h"
 #include "util/comparator.h"
+#include "util/typecast.h"
 #include "util/util.h"
 
 void TupleCell::to_string(std::ostream &os) const
@@ -51,7 +53,6 @@ void TupleCell::to_string(std::ostream &os) const
 
 int TupleCell::compare(const TupleCell &other) const
 {
-  assert(this->attr_type_ == other.attr_type_);
   if (this->attr_type_ == other.attr_type_) {
     switch (this->attr_type_) {
       case INTS:
@@ -72,6 +73,23 @@ int TupleCell::compare(const TupleCell &other) const
     float other_data = *(int *)other.data_;
     return compare_float(data_, &other_data);
   }
+  // for compare.
+  float *tmp_left_float = nullptr;
+  float *tmp_right_float = nullptr;
+  DEFER([&]() {
+    if (tmp_left_float)
+      delete tmp_left_float;
+    if (tmp_right_float)
+      delete tmp_right_float;
+  });
+  tmp_left_float = (float *)cast_to[this->attr_type_][FLOATS](this->data_);
+  assert(nullptr != tmp_left_float);
+  std::cout << *tmp_left_float << std::endl;
+  tmp_right_float = (float *)cast_to[other.attr_type_][FLOATS](other.data_);
+  assert(nullptr != tmp_right_float);
+  std::cout << *tmp_right_float << std::endl;
+  return compare_float(tmp_left_float, tmp_right_float);
+
   LOG_WARN("not supported");
   return -1;  // TODO return rc?
 }
