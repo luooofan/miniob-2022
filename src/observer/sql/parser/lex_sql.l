@@ -82,11 +82,11 @@ DOUBLE_QUOTE     \"
 [Oo][Rr][Dd][Ee][Rr]                                 RETURN_TOKEN(ORDER);
 [Gg][Rr][Oo][Uu][Pp]                                 RETURN_TOKEN(GROUP);
 [Bb][Yy]                                             RETURN_TOKEN(BY);
-[Mm][Aa][Xx]                                         RETURN_TOKEN(MAX);
-[Mm][Ii][Nn]                                         RETURN_TOKEN(MIN);
-[Ss][Uu][Mm]                                         RETURN_TOKEN(SUM);
-[Aa][Vv][Gg]                                         RETURN_TOKEN(AVG);
-[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(COUNT);
+[Mm][Aa][Xx]                                         RETURN_TOKEN(AGGR_MAX);
+[Mm][Ii][Nn]                                         RETURN_TOKEN(AGGR_MIN);
+[Ss][Uu][Mm]                                         RETURN_TOKEN(AGGR_SUM);
+[Aa][Vv][Gg]                                         RETURN_TOKEN(AGGR_AVG);
+[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(AGGR_COUNT);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);

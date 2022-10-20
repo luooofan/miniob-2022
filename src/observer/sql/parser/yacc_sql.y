@@ -26,7 +26,7 @@ typedef struct ParserContext {
   Condition conditions[MAX_NUM];
   OrderBy orderbys[MAX_NUM];
   GroupBy groupbys[MAX_NUM];
-  AggrFuncExpr aggrfuncs[MAX_NUM];
+  AggrFuncType aggrfuncs[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
 } ParserContext;
@@ -91,7 +91,7 @@ ParserContext *get_context(yyscan_t scanner)
         JOIN
         SELECT
         DESC
-		ASC
+        ASC
         SHOW
         SYNC
         INSERT
@@ -107,14 +107,14 @@ ParserContext *get_context(yyscan_t scanner)
         STRING_T
 				DATE_T
         FLOAT_T
-		ORDER
-    GROUP
-		BY
-    MAX
-    MIN
-    SUM
-    AVG
-    COUNT
+        ORDER
+        GROUP
+        BY
+        AGGR_MAX
+        AGGR_MIN
+        AGGR_SUM
+        AGGR_AVG
+        AGGR_COUNT
         HELP
         EXIT
         DOT //QUOTE

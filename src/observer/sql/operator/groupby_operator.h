@@ -1,14 +1,9 @@
 #pragma once
 
-#include <vector>
 #include "sql/expr/expression.h"
-#include "sql/parser/parse.h"
 #include "sql/operator/operator.h"
-#include "rc.h"
 #include "sql/expr/tuple.h"
-#include "storage/record/record.h"
-
-class GroupByStmt;
+#include "sql/stmt/groupby_stmt.h"
 
 class GroupByOperator : public Operator {
 public:
@@ -17,8 +12,7 @@ public:
     tuple_.init(aggr_expr);
   }
 
-  virtual ~GroupByOperator()
-  {}
+  virtual ~GroupByOperator() = default;
 
   RC open() override;
   RC next() override;
@@ -31,7 +25,10 @@ public:
 private:
   bool is_first = true;
   bool is_new_group = true;
+
+  // not own this
   GroupByStmt *groupby_stmt_ = nullptr;
+
   std::vector<TupleCell> pre_values_;  // its size equal to groupby_units.size
   GroupTuple tuple_;
 };

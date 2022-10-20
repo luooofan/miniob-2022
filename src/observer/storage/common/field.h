@@ -54,9 +54,9 @@ public:
   {
     this->field_ = field;
   }
-  bool equal_to(const Field &other) const
+  bool equal(const Field &other) const
   {
-    return true;
+    return table_ == other.table_ && field_->equal(*other.field_);
   }
 
 private:

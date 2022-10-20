@@ -41,6 +41,12 @@ public:
 
 public:
   void desc(std::ostream &os) const;
+  bool equal(const FieldMeta &other) const
+  {
+    // TODO(wbj) no need to compare all
+    return name_ == other.name_ && attr_type_ == other.attr_type_ && attr_offset_ == other.attr_offset_ &&
+           attr_len_ == other.attr_len_;
+  }
 
 public:
   void to_json(Json::Value &json_value) const;

@@ -275,7 +275,6 @@ void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num);
 void selects_append_groupbys(Selects *selects, GroupBy groupbys[], size_t groupby_num);
-void selects_append_aggrfuncs(Selects *selects, AggrFuncType aggrfuncs[], size_t aggrfunc_num);
 void selects_destroy(Selects *selects);
 
 // void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num);

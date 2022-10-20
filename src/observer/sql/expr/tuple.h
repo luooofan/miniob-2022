@@ -366,31 +366,15 @@ public:
   GroupTuple() = default;
   virtual ~GroupTuple()
   {
-    for (AggrFuncExpr *expr : aggr_exprs_)
-      delete expr;
-    aggr_exprs_.clear();
+    // TODO(wbj) manage memory
+    // for (AggrFuncExpr *expr : aggr_exprs_)
+    //   delete expr;
+    // aggr_exprs_.clear();
   }
 
   void set_tuple(Tuple *tuple)
   {
     this->tuple_ = tuple;
-  }
-
-  void add_aggr_expr(AggrFuncExpr *expr)
-  {
-    aggr_exprs_.emplace_back(expr);
-  }
-
-  AttrType get_return_type(const Field &field) const
-  {
-    for (auto expr : aggr_exprs_) {
-      assert(ExprType::AGGRFUNC == expr->type());
-      Field &aggr_field = static_cast<AggrFuncExpr *>(expr)->field();
-      if (field.equal_to(aggr_field)) {
-        return expr->get_return_type();
-      }
-    }
-    return field.meta()->type();
   }
 
   int cell_num() const override
@@ -408,8 +392,19 @@ public:
 
   RC find_cell(const Field &field, TupleCell &cell) const override
   {
+    if (tuple_ == nullptr) {
+      return RC::GENERIC_ERROR;
+    }
+    // TODO(wbj) O(n) -> O(1)
+    for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
+      AggrFuncExpr &expr = *aggr_exprs_[i];
+      if (field.equal(expr.field())) {
+        cell = aggr_results_[i];
+        LOG_INFO("Field is found in aggr_exprs");
+        return RC::SUCCESS;
+      }
+    }
     RC rc = tuple_->find_cell(field, cell);
-    cell.set_type(get_return_type(field));
     return rc;
   }
 
@@ -441,59 +436,17 @@ public:
     return aggr_exprs_;
   }
 
-  void do_aggregate()
-  {
-    count_++;
-    TupleCell tmp;
-    for (int i = 0; i < aggr_exprs_.size(); ++i) {
-      const AggrFuncExpr *expr = aggr_exprs_[i];
-      if (AggrFuncType::COUNT == expr->get_aggr_func_type()) {
-        continue;
-      }
-      expr->get_value(*tuple_, tmp);
-      switch (expr->get_aggr_func_type()) {
-        case AggrFuncType::MIN:
-          aggr_results_[i] = TupleCell::min(aggr_results_[i], tmp);
-          break;
-        case AggrFuncType::MAX:
-          aggr_results_[i] = TupleCell::max(aggr_results_[i], tmp);
-          break;
-        default:
-          LOG_ERROR("Unsupported AggrFuncType");
-          break;
-      }
-    }
-  }
-  void do_aggregate_done()
-  {
-    for (int i = 0; i < aggr_exprs_.size(); ++i) {
-      const AggrFuncExpr *expr = aggr_exprs_[i];
-      TupleCell &res = aggr_results_[i];
-      switch (expr->get_aggr_func_type()) {
-        case AggrFuncType::COUNT: {
-          res.set_type(AttrType::INTS);
-          res.set_length(sizeof(int));
-          memcpy(res.data(), &count_, sizeof(int));
-          break;
-        }
-        case AggrFuncType::AVG: {
-          //
-          // memcpy
-          break;
-        }
-        default:
-          break;
-      }
-    }
-  }
+  void do_aggregate_first();
+
+  void do_aggregate();
+
+  void do_aggregate_done();
+
   void init(const std::vector<AggrFuncExpr *> &aggr_expr)
   {
     aggr_results_.reserve(aggr_expr.size());
     for (auto expr : aggr_expr) {
       aggr_exprs_.emplace_back(expr);
-      // aggr_results_.emplace_back(TupleCell());
-      // Field &field = expr->field();
-      // TupleCell tmp(field, new char[field.])
     }
   }
 

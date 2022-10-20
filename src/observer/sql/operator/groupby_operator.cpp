@@ -1,8 +1,5 @@
 #include "sql/operator/groupby_operator.h"
-#include "common/log/log.h"
-#include "sql/expr/expression.h"
 #include "sql/stmt/groupby_stmt.h"
-#include <algorithm>
 
 RC GroupByOperator::open()
 {
@@ -36,12 +33,13 @@ RC GroupByOperator::next()
       unit->expr()->get_value(*children_[0]->current_tuple(), pre_values_.back());
     }
     assert(pre_values_.size() == units.size());
+    LOG_INFO("GroupByOperator set first success!");
   }
 
   while (true) {
     // 0. if the last row is new group, do aggregate first
     if (is_new_group) {
-      tuple_.do_aggregate();
+      tuple_.do_aggregate_first();
       is_new_group = false;
     }
     if (RC::SUCCESS != (rc = children_[0]->next())) {
@@ -59,7 +57,7 @@ RC GroupByOperator::next()
         is_new_group = true;
       }
     }
-    // 3. if new group, should return a row, update tuple_
+    // 3. if new group, should return a row
     if (is_new_group) {
       tuple_.do_aggregate_done();
       return rc;

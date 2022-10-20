@@ -14,7 +14,10 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cassert>
+#include <cstring>
 #include <iostream>
+#include "sql/parser/parse_defs.h"
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
 
@@ -48,17 +51,34 @@ public:
   {
     this->set_data(const_cast<char *>(data));
   }
+  void modify_data(char *data)
+  {
+    if (nullptr == data_) {
+      return;
+    }
+    switch (attr_type_) {
+      case AttrType::DATES:
+      case AttrType::INTS:
+        memcpy(data_, data, sizeof(int));
+        break;
+      case AttrType::FLOATS:
+        memcpy(data_, data, sizeof(float));
+        break;
+      case AttrType::CHARS:
+        // TODO(wbj) note memcpy len
+        memcpy(data_, data, length_);
+        break;
+      default:
+        break;
+    }
+    return;
+  }
 
   void to_string(std::ostream &os) const;
 
   int compare(const TupleCell &other) const;
 
   const char *data() const
-  {
-    return data_;
-  }
-
-  char *data()
   {
     return data_;
   }
