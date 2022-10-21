@@ -24,6 +24,7 @@ class FieldMeta;
 class FilterStmt;
 class Db;
 class Table;
+class Expression;
 
 class SelectStmt : public Stmt {
 public:
@@ -43,9 +44,9 @@ public:
   {
     return tables_;
   }
-  const std::vector<Field> &query_fields() const
+  const std::vector<Expression *> &projects() const
   {
-    return query_fields_;
+    return projects_;
   }
   FilterStmt *filter_stmt() const
   {
@@ -53,7 +54,9 @@ public:
   }
 
 private:
-  std::vector<Field> query_fields_;
+  // own these expression
+  std::vector<Expression *> projects_;
+
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
 };

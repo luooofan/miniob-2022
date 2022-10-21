@@ -539,9 +539,9 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   pred_oper.add_child(scan_oper);
   ProjectOperator project_oper;
   project_oper.add_child(&pred_oper);
-  auto &field = select_stmt->query_fields();
-  for (auto it = field.begin(); it != field.end(); it++) {
-    project_oper.add_projection(it->table(), it->meta(), is_single_table);
+  auto &projects = select_stmt->projects();
+  for (auto it = projects.begin(); it != projects.end(); it++) {
+    project_oper.add_projection(*it, is_single_table);
   }
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {

@@ -20,13 +20,13 @@ popd
 
 if [ "$1" == "test" ]; then
   # test component
-  pushd build/bin
-  for exe in $(pwd)/*_test; do
-    if [ $exe != $(pwd)/"client_performance_test" ] && [ $exe != $(pwd)/"clog_test" ]; then
-      $exe
-    fi
-  done
-  popd
+  # pushd build/bin
+  # for exe in $(pwd)/*_test; do
+  #   if [ $exe != $(pwd)/"client_performance_test" ] && [ $exe != $(pwd)/"clog_test" ]; then
+  #     $exe
+  #   fi
+  # done
+  # popd
 
   # test case without build
   pushd test/case/

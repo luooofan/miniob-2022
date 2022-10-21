@@ -65,12 +65,14 @@ typedef struct _Expr {
   int type;  // 0 1 2(func)
   UnaryExpr *uexp;
   BinaryExpr *bexp;
+  int with_brace;
 } Expr;
 
 typedef struct _BinaryExpr {
   ExpOp op;
   Expr *left;
   Expr *right;
+  int minus;
 } BinaryExpr;
 
 typedef struct _Condition {
@@ -78,6 +80,12 @@ typedef struct _Condition {
   Expr *left;
   Expr *right;
 } Condition;
+
+typedef struct _ProjectCol {
+  int is_star;  // 0 is not star, 1 is star
+  char *relation_name;
+  Expr *expr;
+} ProjectCol;
 
 // struct of select
 typedef struct {
@@ -87,6 +95,8 @@ typedef struct {
   char *relations[MAX_NUM];       // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
+  size_t project_num;             // Length of select clauses
+  ProjectCol projects[MAX_NUM];   // project_col in select clause
 } Selects;
 // struct of insert
 typedef struct {
@@ -214,16 +224,22 @@ void unary_expr_destroy(UnaryExpr *expr);
 
 void binary_expr_print(BinaryExpr *expr, int indent);
 void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_expr);
+void binary_expr_set_minus(BinaryExpr *expr);
 void binary_expr_destroy(BinaryExpr *expr);
 
 void expr_print(Expr *expr, int indent);
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
+void expr_set_with_brace(Expr *expr);
 void expr_destroy(Expr *expr);
 
 void condition_print(Condition *condition, int indent);
 void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *right_expr);
 void condition_destroy(Condition *condition);
+
+void projectcol_init_star(ProjectCol *projectcol, const char *relation_name);
+void projectcol_init_expr(ProjectCol *projectcol, Expr *expr);
+void projectcol_destroy(ProjectCol *projectcol);
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
 void relation_attr_destroy(RelAttr *relation_attr);
@@ -238,6 +254,7 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
+void selects_append_projects(Selects *selects, ProjectCol *project_col);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);

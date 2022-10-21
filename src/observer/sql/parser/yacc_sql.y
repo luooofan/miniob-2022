@@ -369,6 +369,21 @@ mul_expr:
     unary_expr {
       $$ = $1;
     }
+    | SUB unary_expr {
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, -1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
+      Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, MUL_OP, tmp_expr, $2);
+      binary_expr_set_minus(b_expr);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
     | mul_expr STAR unary_expr {
       Expr * expr = malloc(sizeof(Expr));
       BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
@@ -438,14 +453,24 @@ unary_expr:
       expr_init_unary(expr, u_expr);
       $$ = expr;
     }
+    | LBRACE add_expr RBRACE {
+      expr_set_with_brace($2);
+      $$ = $2;
+    }
     ;
 
 value:
     NUMBER{	
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
+    |SUB NUMBER{	
+  		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], -($2));
+		}
     |FLOAT{
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
+		}
+    |SUB FLOAT{
+  		value_init_float(&CONTEXT->values[CONTEXT->value_length++], -($2));
 		}
     |SSS {
 			$1 = substr($1,1,strlen($1)-2);
@@ -504,49 +529,43 @@ select:				/*  select 语句的语法解析树*/
 
 select_attr:
     STAR attr_list {  
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+			ProjectCol project_col;
+			projectcol_init_star(&project_col, NULL);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
 		}
-    | ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, $1);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
-  	| ID DOT ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $1, $3);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
-	| ID DOT STAR attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $1, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
+    |
+    ID DOT STAR attr_list{
+      ProjectCol project_col;
+			projectcol_init_star(&project_col, $1);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
+    |
+    add_expr attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $1);
+      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
     ;
 attr_list:
     /* empty */
-    | COMMA ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, $2);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-     	  // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].relation_name = NULL;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].attribute_name=$2;
-      }
-    | COMMA ID DOT ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $2, $4);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
-  	  }
-	| COMMA ID DOT STAR attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $2, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
-  	  }
+    |
+    COMMA STAR attr_list {  
+			ProjectCol project_col;
+			projectcol_init_star(&project_col, NULL);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+		}
+    |
+    COMMA ID DOT STAR attr_list{
+      ProjectCol project_col;
+			projectcol_init_star(&project_col, $2);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
+    |
+    COMMA add_expr attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $2);
+      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
   	;
 
 rel_list:

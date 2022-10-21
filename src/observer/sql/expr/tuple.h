@@ -33,10 +33,10 @@ public:
 
   ~TupleCellSpec()
   {
-    if (expression_) {
-      delete expression_;
-      expression_ = nullptr;
-    }
+    // if (expression_) {
+    //   delete expression_;
+    //   expression_ = nullptr;
+    // }
   }
 
   void set_alias(const char *alias)

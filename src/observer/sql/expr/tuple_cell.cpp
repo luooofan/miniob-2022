@@ -97,22 +97,18 @@ const TupleCell TupleCell::mul(const TupleCell &left, const TupleCell &right)
 const TupleCell TupleCell::div(const TupleCell &left, const TupleCell &right)
 {
   TupleCell result_cell;
-  if (left.attr_type_ == INTS && right.attr_type_ == INTS) {
-    int result = *(int *)left.data_ / *(int *)right.data_;
-    int *result_data = new int(result);
-    result_cell.set_data((char *)result_data);
-    result_cell.set_type(INTS);
-  } else {
-    float *tmp_left = (float *)cast_to[left.attr_type_][FLOATS](left.data_);
-    float *tmp_right = (float *)cast_to[right.attr_type_][FLOATS](right.data_);
-    assert(nullptr != tmp_left);
-    assert(nullptr != tmp_right);
-    float *result_data = new float(*tmp_left / *tmp_right);
-    result_cell.set_data((char *)result_data);
-    result_cell.set_type(FLOATS);
-    delete tmp_left;
-    delete tmp_right;
-  }
+  float *tmp_left = (float *)cast_to[left.attr_type_][FLOATS](left.data_);
+  float *tmp_right = (float *)cast_to[right.attr_type_][FLOATS](right.data_);
+  assert(nullptr != tmp_left);
+  assert(nullptr != tmp_right);
+  float result = 0;
+  if (0 != *tmp_right)
+    result = *tmp_left / *tmp_right;
+  float *result_data = new float(result);
+  result_cell.set_data((char *)result_data);
+  result_cell.set_type(FLOATS);
+  delete tmp_left;
+  delete tmp_right;
   return result_cell;
 }
 

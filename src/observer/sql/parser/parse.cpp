@@ -64,6 +64,31 @@ void unary_expr_print(UnaryExpr *expr, int indent)
     value_print(&(expr->value), indent);
   }
 }
+
+void projectcol_init_star(ProjectCol *projectcol, const char *relation_name)
+{
+  projectcol->is_star = 1;
+  if (relation_name != nullptr) {
+    projectcol->relation_name = strdup(relation_name);
+  } else {
+    projectcol->relation_name = nullptr;
+  }
+}
+
+void projectcol_init_expr(ProjectCol *projectcol, Expr *expr)
+{
+  projectcol->is_star = 0;
+  projectcol->relation_name = nullptr;
+  projectcol->expr = expr;
+}
+
+void projectcol_destroy(ProjectCol *projectcol)
+{
+  if (nullptr != projectcol->relation_name)
+    free(projectcol->relation_name);
+  projectcol->relation_name = nullptr;
+}
+
 void unary_expr_init_value(UnaryExpr *expr, Value *value)
 {
   expr->is_attr = 0;
@@ -93,6 +118,11 @@ void binary_expr_init(BinaryExpr *expr, ExpOp op, Expr *left_expr, Expr *right_e
   expr->left = left_expr;
   expr->right = right_expr;
   expr->op = op;
+  expr->minus = 0;
+}
+void binary_expr_set_minus(BinaryExpr *expr)
+{
+  expr->minus = 1;
 }
 void binary_expr_destroy(BinaryExpr *expr)
 {
@@ -134,12 +164,18 @@ void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
   expr->type = 0;
   expr->uexp = u_expr;
   expr->bexp = NULL;
+  expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
 {
   expr->type = 1;
   expr->bexp = b_expr;
   expr->uexp = NULL;
+  expr->with_brace = 0;
+}
+void expr_set_with_brace(Expr *expr)
+{
+  expr->with_brace = 1;
 }
 void expr_destroy(Expr *expr)
 {
@@ -232,6 +268,12 @@ void attr_info_destroy(AttrInfo *attr_info)
 }
 
 void selects_init(Selects *selects, ...);
+
+void selects_append_projects(Selects *selects, ProjectCol *project_col)
+{
+  selects->projects[selects->project_num++] = *project_col;
+}
+
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 {
   selects->attributes[selects->attr_num++] = *rel_attr;
@@ -268,6 +310,10 @@ void selects_destroy(Selects *selects)
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+  for (size_t i = 0; i < selects->project_num; i++) {
+    projectcol_destroy(&selects->projects[i]);
+  }
+  selects->project_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)
