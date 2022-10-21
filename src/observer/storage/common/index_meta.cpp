@@ -40,8 +40,9 @@ void IndexMeta::to_json(Json::Value &json_value) const
 {
   json_value[FIELD_NAME] = name_;
   json_value[UNIQUE_OR_NOT] = unique_;
-  for (int i = 0; i < field_.size(); i++) {
-    json_value[FIELD_FIELD_NAME][i] = field_.at(i);
+  for (size_t i = 0; i < field_.size(); i++) {
+    int idx = i;
+    json_value[FIELD_FIELD_NAME][idx] = field_[idx];
   }
 }
 
@@ -61,8 +62,9 @@ RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, I
   }
 
   std::vector<std::string> fields;
-  for (int i = 0; i < field_value.size(); i++) {
-    if (!field_value[i].isString()) {
+  for (size_t i = 0; i < field_value.size(); i++) {
+    int idx = i;
+    if (!field_value[idx].isString()) {
       LOG_ERROR("Field name of index [%s] is not a string. json value=%s",
           name_value.asCString(),
           field_value.toStyledString().c_str());
@@ -101,17 +103,16 @@ const std::vector<std::string> *IndexMeta::field() const
 
 void IndexMeta::desc(std::ostream &os) const
 {
-  os << "index name=" << name_ << ", field=" << field_.at(0);
+  os << "index name=" << name_ << ", field=" << field_[0];
 
-  for (int i = 1; i < field_.size(); i++) {
-    os << ',' << field_.at(i);
+  for (size_t i = 1; i < field_.size(); i++) {
+    os << ',' << field_[i];
   }
 }
 
 void IndexMeta::show(std::ostream &os) const
 {
   for (int i = 0; i < field_count(); i++) {
-    os << name_ << " | " << (unique_ ? 0 : 1) << " | " << name_ << " | " << (i + 1) << " | " << field_.at(i)
-       << std::endl;
+    os << name_ << " | " << (unique_ ? 0 : 1) << " | " << name_ << " | " << (i + 1) << " | " << field_[i] << std::endl;
   }
 }

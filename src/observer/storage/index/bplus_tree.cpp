@@ -786,8 +786,8 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
   }
 
   int length_sum = 0;
-  for (int i = 0; i < attr_length.size(); i++) {
-    length_sum += attr_length.at(i);
+  for (size_t i = 0; i < attr_length.size(); i++) {
+    length_sum += attr_length[i];
   }
   if (internal_max_size < 0) {
     internal_max_size = calc_internal_page_capacity(length_sum);
@@ -1385,9 +1385,9 @@ char *BplusTreeHandler::make_key(const char *user_key, const RID &rid)
     return nullptr;
   }
   int pos = 0;
-  for (int i = 0; i < file_header_.attr_length.size(); i++) {
-    memcpy(key + pos, user_key + pos, file_header_.attr_length.at(i));
-    pos += file_header_.attr_length.at(i);
+  for (size_t i = 0; i < file_header_.attr_length.size(); i++) {
+    memcpy(key + pos, user_key + pos, file_header_.attr_length[i]);
+    pos += file_header_.attr_length[i];
   }
   memcpy(key + pos, &rid, sizeof(rid));
   return key;
@@ -1691,9 +1691,9 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
     return RC::NOMEM;
   }
   int pos = 0;
-  for (int i = 0; i < file_header_.attr_length.size(); i++) {
-    memcpy(key + pos, user_key + pos, file_header_.attr_length.at(i));
-    pos += file_header_.attr_length.at(i);
+  for (size_t i = 0; i < file_header_.attr_length.size(); i++) {
+    memcpy(key + pos, user_key + pos, file_header_.attr_length[i]);
+    pos += file_header_.attr_length[i];
   }
   memcpy(key + pos, rid, sizeof(*rid));
 
@@ -1756,7 +1756,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     char *left_key = nullptr;
 
     char *fixed_left_key = const_cast<char *>(left_user_key);
-    if (tree_handler_.file_header_.attr_type.at(0) == CHARS) {  // TO DO MULTI INDEX
+    if (tree_handler_.file_header_.attr_type[0] == CHARS) {  // TO DO MULTI INDEX
       bool should_inclusive_after_fix = false;
       rc = fix_user_key(left_user_key, left_len, true /*greater*/, &fixed_left_key, &should_inclusive_after_fix);
       if (rc != RC::SUCCESS) {
@@ -1823,7 +1823,7 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
     char *right_key = nullptr;
     char *fixed_right_key = const_cast<char *>(right_user_key);
     bool should_include_after_fix = false;
-    if (tree_handler_.file_header_.attr_type.at(0) == CHARS) {  // TO DO MULTI INDEX
+    if (tree_handler_.file_header_.attr_type[0] == CHARS) {  // TO DO MULTI INDEX
       rc = fix_user_key(right_user_key, right_len, false /*want_greater*/, &fixed_right_key, &should_include_after_fix);
       if (rc != RC::SUCCESS) {
         LOG_WARN("failed to fix right user key. rc=%s", strrc(rc));
@@ -1966,12 +1966,12 @@ RC BplusTreeScanner::fix_user_key(
   }
 
   // 这里很粗暴，变长字段才需要做调整，其它默认都不需要做调整
-  assert(tree_handler_.file_header_.attr_type.at(0) == CHARS);  // TO DO MULTI INDEX
+  assert(tree_handler_.file_header_.attr_type[0] == CHARS);  // TO DO MULTI INDEX
   assert(strlen(user_key) >= static_cast<size_t>(key_len));
 
   *should_inclusive = false;
 
-  int32_t attr_length = tree_handler_.file_header_.attr_length.at(0);  // TO DO MULTI INDEX
+  int32_t attr_length = tree_handler_.file_header_.attr_length[0];  // TO DO MULTI INDEX
   char *key_buf = new (std::nothrow) char[attr_length];
   if (nullptr == key_buf) {
     return RC::NOMEM;

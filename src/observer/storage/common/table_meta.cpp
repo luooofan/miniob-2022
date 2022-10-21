@@ -340,7 +340,7 @@ void TableMeta::show_index(std::ostream &os) const
      << " | "
      << "KEY_NAME"
      << " | "
-     << "SQL_IN_INDEX"
+     << "SEQ_IN_INDEX"
      << " | "
      << "COLUMN_NAME" << std::endl;
 

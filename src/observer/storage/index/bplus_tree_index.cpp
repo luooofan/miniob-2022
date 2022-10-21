@@ -36,10 +36,10 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, st
   std::vector<int> field_length;
   std::vector<int> field_offset;
   std::vector<AttrType> field_type;
-  for (int i = 0; i < field_meta.size(); i++) {
-    field_length.push_back(field_meta.at(i).len());
-    field_offset.push_back(field_meta.at(i).offset());
-    field_type.push_back(field_meta.at(i).type());
+  for (size_t i = 0; i < field_meta.size(); i++) {
+    field_length.push_back(field_meta[i].len());
+    field_offset.push_back(field_meta[i].offset());
+    field_type.push_back(field_meta[i].type());
   }
 
   RC rc = index_handler_.create(file_name, field_type, field_length, field_offset);

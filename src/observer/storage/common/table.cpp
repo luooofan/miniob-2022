@@ -205,9 +205,9 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
     const std::vector<std::string> *index_field_names = index_meta->field();
-    std::vector<FieldMeta> *field_metas;
+    std::vector<FieldMeta> field_metas;
 
-    for (int i = 0; i < index_field_names->size(); i++) {
+    for (size_t i = 0; i < index_field_names->size(); i++) {
       const char *field_name = index_field_names->at(i).data();
       const FieldMeta *field_meta = table_meta_.field(field_name);
       if (field_meta == nullptr) {
@@ -219,12 +219,12 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
         //  do all cleanup action in destructive Table function
         return RC::GENERIC_ERROR;
       }
-      field_metas->push_back(*field_meta);
+      field_metas.push_back(*field_meta);
     }
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
-    rc = index->open(index_file.c_str(), *index_meta, *field_metas);
+    rc = index->open(index_file.c_str(), *index_meta, field_metas);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%d:%s",
@@ -412,7 +412,7 @@ RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
     if (RC::SUCCESS != rc) {
       LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
 
-      for (int j = 0; j < records_done.size(); j++) {
+      for (size_t j = 0; j < records_done.size(); j++) {
         rc = delete_record(trx, &records_done[j]);
         if (RC::SUCCESS != rc) {
           LOG_ERROR("Failed to rollback record [%p]. rc=%d:%s", records_done[j], rc, strrc(rc));

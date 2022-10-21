@@ -41,7 +41,7 @@ public:
   {
     int sum_len = 0;
     for (size_t i = 0; i < attr_length_.size(); i++) {
-      sum_len += attr_length_.at(i);
+      sum_len += attr_length_[i];
     }
     return sum_len;  // TO DO MULTI INDEX
   }
@@ -51,7 +51,7 @@ public:
     int rc = 0;
     int pos = 0;
     for (size_t i = 0; i < attr_length_.size(); i++) {
-      switch (attr_type_.at(i)) {
+      switch (attr_type_[i]) {
         case INTS:
         case DATES: {
           rc = compare_int((void *)(v1 + pos), (void *)(v2 + pos));
@@ -60,10 +60,10 @@ public:
           rc = compare_float((void *)(v1 + pos), (void *)(v2 + pos));
         } break;
         case CHARS: {
-          rc = compare_string((void *)(v1 + pos), attr_length_.at(i), (void *)(v2 + pos), attr_length_.at(i));
+          rc = compare_string((void *)(v1 + pos), attr_length_[i], (void *)(v2 + pos), attr_length_[i]);
         } break;
         default: {
-          LOG_ERROR("unknown attr type. %d", attr_type_.at(i));
+          LOG_ERROR("unknown attr type. %d", attr_type_[i]);
           abort();
         }
       }
@@ -71,7 +71,7 @@ public:
       if (rc != 0) {
         return rc;
       }
-      pos += attr_length_.at(i);
+      pos += attr_length_[i];
     }
     return rc;
   }
@@ -119,13 +119,17 @@ public:
 
   int attr_length() const
   {
-    return attr_length_.at(0);  // TO DO MULTI INDEX
+    int len_sum = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      len_sum += attr_length_[i];
+    }
+    return len_sum;
   }
 
   std::string operator()(const char *v) const
   {
-    for (int i = 0; i < attr_type_.size(); i++) {
-      switch (attr_type_.at(i)) {
+    for (size_t i = 0; i < attr_type_.size(); i++) {
+      switch (attr_type_[i]) {
         case INTS: {
           return std::to_string(*(int *)v);
         } break;
@@ -134,7 +138,7 @@ public:
         }
         case CHARS: {
           std::string str;
-          for (int i = 0; i < attr_length_.at(i); i++) {
+          for (int i = 0; i < attr_length_[i]; i++) {
             if (v[i] == 0) {
               break;
             }
@@ -143,7 +147,7 @@ public:
           return str;
         }
         default: {
-          LOG_ERROR("unknown attr type. %d", attr_type_.at(i));
+          LOG_ERROR("unknown attr type. %d", attr_type_[i]);
           abort();
         }
       }
@@ -206,15 +210,15 @@ struct IndexFileHeader {
   {
     std::stringstream ss;
 
-    ss << "attr_length:" << attr_length.at(0);
-    for (int i = 1; i < attr_length.size(); i++) {
-      ss << "|" << attr_length.at(i);
+    ss << "attr_length:" << attr_length[0];
+    for (size_t i = 1; i < attr_length.size(); i++) {
+      ss << "|" << attr_length[i];
     }
     ss << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type.at(0);
-    for (int i = 1; i < attr_type.size(); i++) {
-      ss << "|" << attr_type.at(i);
+       << "attr_type:" << attr_type[0];
+    for (size_t i = 1; i < attr_type.size(); i++) {
+      ss << "|" << attr_type[i];
     }
     ss << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
