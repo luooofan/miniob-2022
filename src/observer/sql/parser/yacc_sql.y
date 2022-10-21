@@ -387,7 +387,7 @@ delete:		/*  delete 语句的语法解析树*/
     }
     ;
 update:			/*  update 语句的语法解析树*/
-    UPDATE ID update_option update_options where SEMICOLON
+    UPDATE ID SET update_option update_options where SEMICOLON
 		{
 			CONTEXT->ssql->flag = SCF_UPDATE;		//"update";
 			updates_init(&CONTEXT->ssql->sstr.update, $2, 
@@ -398,13 +398,16 @@ update:			/*  update 语句的语法解析树*/
 
 update_options:
 		/* EMPTY */
-		| update_option COMMA update_options {
+		|COMMA update_option update_options {
 			// Do Nothing
 		}
 update_option:
-		SET ID EQ value {
+		ID EQ value {
 			Value *value = &CONTEXT->values[0];
-			updates_append_attribute(&CONTEXT->ssql->sstr.update, $2, value);
+			updates_append_attribute(&CONTEXT->ssql->sstr.update, $1, value);
+			//临时变量清零
+			memset(CONTEXT->values, 0, sizeof(CONTEXT->values));
+      CONTEXT->value_length=0;
 		}
 
 select:				/*  select 语句的语法解析树*/
