@@ -2,7 +2,10 @@
 #include <cstdlib>
 #include <cstring>
 
+// if you use it, you own a pointer or only get a nullptr
 cast_func_ptr cast_to[AttrType::FLOATS + 1][AttrType::FLOATS + 1] = {{
+                                                                         // UNDEFINED
+                                                                         not_support,
                                                                          not_support,
                                                                          not_support,
                                                                          not_support,
@@ -10,20 +13,26 @@ cast_func_ptr cast_to[AttrType::FLOATS + 1][AttrType::FLOATS + 1] = {{
                                                                          not_support,
                                                                      },
     {
+        // CHARS
         not_support,
         char_to_char,
         char_to_int,
         not_support,
+        not_support,
         char_to_float,
     },
     {
+        // INTS
         not_support,
         int_to_char,
         int_to_int,
         not_support,
+        not_support,
         int_to_float,
     },
     {
+        // DATES
+        not_support,
         not_support,
         not_support,
         not_support,
@@ -31,9 +40,20 @@ cast_func_ptr cast_to[AttrType::FLOATS + 1][AttrType::FLOATS + 1] = {{
         not_support,
     },
     {
+        // NULLS
+        not_support,
+        not_support,
+        not_support,
+        not_support,
+        not_support,
+        not_support,
+    },
+    {
+        // FLOATS
         not_support,
         float_to_char,
         float_to_int,
+        not_support,
         not_support,
         float_to_float,
     }};

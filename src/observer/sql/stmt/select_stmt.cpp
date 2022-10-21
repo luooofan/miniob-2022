@@ -59,10 +59,11 @@ SelectStmt::~SelectStmt()
 static void wildcard_fields(Table *table, std::vector<Expression *> &projects)
 {
   const TableMeta &table_meta = table->table_meta();
-  const int field_num = table_meta.field_num();
-  // TODO ignore the last field: __null
+  const int field_num = table_meta.field_num() - table_meta.extra_filed_num();
   for (int i = table_meta.sys_field_num(); i < field_num; i++) {
-    projects.emplace_back(new FieldExpr(table, table_meta.field(i)));
+    if (table_meta.field(i)->visible()) {
+      projects.emplace_back(new FieldExpr(table, table_meta.field(i)));
+    }
   }
 }
 

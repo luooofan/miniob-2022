@@ -68,16 +68,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
               value_type);
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
         }
-        continue;
       }
-      // if (field_type != value_type) {  // TODO try to convert the value type to field type
-      //   LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-      //       table_name,
-      //       field_meta->name(),
-      //       field_type,
-      //       value_type);
-      //   return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      // }
     }
 
     Row row;

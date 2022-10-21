@@ -93,6 +93,7 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
     left_expr->get_value(tuple, left_cell);
     right_expr->get_value(tuple, right_cell);
 
+    // 0. at first, check null
     if (left_cell.is_null() || right_cell.is_null()) {
       return false;
     }
@@ -100,8 +101,7 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
     AttrType left_type = left_cell.attr_type();
     AttrType right_type = right_cell.attr_type();
 
-    // some predicates. contains like, in, compare.
-    // for like. only occur in chars type. no need to concern typecast
+    // 1. for like. only occur in chars type. no need to concern typecast
     if (LIKE_OP == comp || NOT_LIKE_OP == comp) {
       assert(CHARS == left_type && CHARS == right_type);
       std::string raw_reg((const char *)right_cell.data());
@@ -116,7 +116,7 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
       continue;
     }
 
-    // for compare: > >= < <= == != <>
+    // 2. for compare: > >= < <= == != <>
     const int compare = left_cell.compare(right_cell);
 
     bool filter_result = false;
