@@ -92,20 +92,21 @@ typedef struct {
   Condition conditions[MAX_NUM];  // conditions in Where clause
 } Deletes;
 
-// struct of update
-typedef struct {
-  char *relation_name;            // Relation to update
-  char *attribute_name;           // Attribute to update
-  Value value;                    // update value
-  size_t condition_num;           // Length of conditions in Where clause
-  Condition conditions[MAX_NUM];  // conditions in Where clause
-} Updates;
-
 typedef struct {
   char *name;     // Attribute name
   AttrType type;  // Type of attribute
   size_t length;  // Length of attribute
 } AttrInfo;
+
+// struct of update
+typedef struct {
+  char *relation_name;                // Relation to update
+  size_t attribute_num;               // Attribute nums
+  AttrInfo attribute_names[MAX_NUM];  // Attributes to update
+  Value values[MAX_NUM];              // update values
+  size_t condition_num;               // Length of conditions in Where clause
+  Condition conditions[MAX_NUM];      // conditions in Where clause
+} Updates;
 
 // struct of craete_table
 typedef struct {
@@ -220,8 +221,8 @@ void deletes_init_relation(Deletes *deletes, const char *relation_name);
 void deletes_set_conditions(Deletes *deletes, Condition conditions[], size_t condition_num);
 void deletes_destroy(Deletes *deletes);
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, Value *value,
-    Condition conditions[], size_t condition_num);
+void updates_init(Updates *updates, const char *relation_name, Condition conditions[], size_t condition_num);
+void updates_append_attribute(Updates *updates, const char *attribute_name, Value *value);
 void updates_destroy(Updates *updates);
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info);

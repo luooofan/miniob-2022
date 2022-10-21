@@ -44,7 +44,7 @@ RC UpdateOperator::open()
 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
     Record &record = row_tuple->record();
-    rc = table->update_record(trx_, update_stmt_->attr_name(), &record, update_stmt_->values());
+    rc = table->update_record(trx_, update_stmt_->attr_names(), &record, update_stmt_->values());
     if (rc != RC::SUCCESS) {
       if (rc == RC::RECORD_DUPLICATE_KEY) {
         LOG_WARN("same value, not need to update");

@@ -20,8 +20,8 @@ See the Mulan PSL v2 for more details. */
 
 // UpdateStmt::UpdateStmt(Table *table, Value *values, int value_amount)
 //     : table_(table), values_(values), value_amount_(value_amount)
-UpdateStmt::UpdateStmt(Table *table, const char *attr_name, Value *value, FilterStmt *filter_stmt)
-    : table_(table), attr_name_(attr_name), values_(value), filter_stmt_(filter_stmt)
+UpdateStmt::UpdateStmt(Table *table, std::vector<char *> attr_names, std::vector<Value> values, FilterStmt *filter_stmt)
+    : table_(table), attr_names_(attr_names), values_(values), filter_stmt_(filter_stmt)
 {}
 
 UpdateStmt::~UpdateStmt()
@@ -35,9 +35,8 @@ UpdateStmt::~UpdateStmt()
 RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
 {
   const char *table_name = update.relation_name;
-  const char *attr_name = update.attribute_name;
-  if (nullptr == db || nullptr == table_name || nullptr == attr_name) {
-    LOG_WARN("invalid argument. db=%p, table_name=%p, field_name=%p", db, table_name, attr_name);
+  if (nullptr == db || nullptr == table_name) {
+    LOG_WARN("invalid argument. db=%p, table_name=%p", db, table_name);
     return RC::INVALID_ARGUMENT;
   }
 
@@ -48,35 +47,47 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  bool field_exist = false;
-  Value value = update.value;
-  const TableMeta &table_meta = table->table_meta();
-  const int sys_field_num = table_meta.sys_field_num();
-  const int user_field_num = table_meta.field_num() - sys_field_num;
-  for (int i = 0; i < user_field_num; i++) {
-    const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
-    const char *field_name = field_meta->name();
-    if (0 != strcmp(field_name, attr_name)) {
-      continue;
+  std::vector<char *> attr_names;
+  std::vector<Value> values;
+  for (size_t i = 0; i < update.attribute_num; i++) {
+    const char *attr_name = update.attribute_names[i].name;
+    if (nullptr == attr_name) {
+      LOG_WARN("invalid argument. field_name=%p", attr_name);
+      return RC::INVALID_ARGUMENT;
     }
 
-    const AttrType field_type = field_meta->type();
-    const AttrType value_type = value.type;
-    if (field_type != value_type) {  // TODO try to convert the value type to field type
-      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-          table_name,
-          field_meta->name(),
-          field_type,
-          value_type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-    }
+    bool field_exist = false;
+    Value value = update.values[i];
+    const TableMeta &table_meta = table->table_meta();
+    const int sys_field_num = table_meta.sys_field_num();
+    const int user_field_num = table_meta.field_num() - sys_field_num;
+    for (int i = 0; i < user_field_num; i++) {
+      const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+      const char *field_name = field_meta->name();
+      if (0 != strcmp(field_name, attr_name)) {
+        continue;
+      }
 
-    field_exist = true;
-    break;
-  }
-  if (!field_exist) {
-    LOG_WARN("Field %s.%s is not exist", table_name, attr_name);
-    return RC::SCHEMA_FIELD_NOT_EXIST;
+      const AttrType field_type = field_meta->type();
+      const AttrType value_type = value.type;
+      if (field_type != value_type) {  // TODO try to convert the value type to field type
+        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+            table_name,
+            field_meta->name(),
+            field_type,
+            value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+
+      field_exist = true;
+      break;
+    }
+    if (!field_exist) {
+      LOG_WARN("Field %s.%s is not exist", table_name, attr_name);
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
+    attr_names.push_back(const_cast<char *>(attr_name));
+    values.push_back(value);
   }
 
   // make filter
@@ -91,6 +102,6 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   }
 
   // everything alright
-  stmt = new UpdateStmt(table, attr_name, &value, filter_stmt);
+  stmt = new UpdateStmt(table, attr_names, values, filter_stmt);
   return RC::SUCCESS;
 }

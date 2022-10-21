@@ -757,6 +757,13 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   }
 
   UpdateStmt *update_stmt = (UpdateStmt *)stmt;
+  if (update_stmt->attr_names().size() != update_stmt->values().size()) {
+    LOG_WARN("update stmt field_nums [%d] not euqal to value_nums [%d] !",
+        update_stmt->attr_names().size(),
+        update_stmt->values().size());
+    return RC::GENERIC_ERROR;
+  }
+
   TableScanOperator scan_oper(update_stmt->table());
   PredicateOperator pred_oper(update_stmt->filter_stmt());
   pred_oper.add_child(&scan_oper);

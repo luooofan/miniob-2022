@@ -387,15 +387,26 @@ delete:		/*  delete 语句的语法解析树*/
     }
     ;
 update:			/*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where SEMICOLON
+    UPDATE ID update_option update_options where SEMICOLON
 		{
-			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
-			Value *value = &CONTEXT->values[0];
-			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, value, 
+			CONTEXT->ssql->flag = SCF_UPDATE;		//"update";
+			updates_init(&CONTEXT->ssql->sstr.update, $2, 
 					CONTEXT->conditions, CONTEXT->condition_length);
 			CONTEXT->condition_length = 0;
 		}
     ;
+
+update_options:
+		/* EMPTY */
+		| update_option COMMA update_options {
+			// Do Nothing
+		}
+update_option:
+		SET ID EQ value {
+			Value *value = &CONTEXT->values[0];
+			updates_append_attribute(&CONTEXT->ssql->sstr.update, $2, value);
+		}
+
 select:				/*  select 语句的语法解析树*/
     SELECT select_attr FROM ID rel_list where SEMICOLON
 		{
