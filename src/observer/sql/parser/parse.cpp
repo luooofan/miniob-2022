@@ -313,6 +313,8 @@ void create_index_destroy(CreateIndex *create_index)
   for (int i = 0; i < create_index->attribute_count; i++) {
     attr_info_destroy(&create_index->attribute_name[i]);
   }
+  create_index->attribute_count = 0;
+  create_index->unique = false;
 }
 
 void drop_index_init(DropIndex *drop_index, const char *index_name)
