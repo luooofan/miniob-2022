@@ -116,11 +116,6 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
-  int len_sum = 0;
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    len_sum += field_meta_[i].len();
-  }
-
   return index_handler_.delete_entry(record, rid);
 }
 
