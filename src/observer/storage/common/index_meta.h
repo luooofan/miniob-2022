@@ -37,7 +37,7 @@ public:
   // const char *field() const;
 
   void desc(std::ostream &os) const;
-  void show(std::ostream &os) const;
+  void show(std::ostream &os, const char *table_name) const;
 
   const bool is_unique() const;
   const int field_count() const;

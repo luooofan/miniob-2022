@@ -152,6 +152,7 @@ public:
         }
       }
     }
+    return nullptr;
   }
 
 private:

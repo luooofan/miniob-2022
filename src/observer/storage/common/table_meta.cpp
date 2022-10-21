@@ -344,7 +344,8 @@ void TableMeta::show_index(std::ostream &os) const
      << " | "
      << "COLUMN_NAME" << std::endl;
 
+  const char *table_name = name();
   for (const auto &index : indexes_) {
-    index.show(os);
+    index.show(os, table_name);
   }
 }

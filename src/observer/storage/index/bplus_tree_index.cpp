@@ -121,13 +121,7 @@ RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
     len_sum += field_meta_[i].len();
   }
 
-  int pos = 0;
-  char user_key[len_sum];
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    memcpy(user_key + pos, record + field_meta_[i].offset(), field_meta_[i].len());
-    pos += field_meta_[i].len();
-  }
-  return index_handler_.delete_entry(user_key, rid);
+  return index_handler_.delete_entry(record, rid);
 }
 
 IndexScanner *BplusTreeIndex::create_scanner(

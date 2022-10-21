@@ -110,9 +110,10 @@ void IndexMeta::desc(std::ostream &os) const
   }
 }
 
-void IndexMeta::show(std::ostream &os) const
+void IndexMeta::show(std::ostream &os, const char *table_name) const
 {
   for (int i = 0; i < field_count(); i++) {
-    os << name_ << " | " << (unique_ ? 0 : 1) << " | " << name_ << " | " << (i + 1) << " | " << field_[i] << std::endl;
+    os << table_name << " | " << (unique_ ? 0 : 1) << " | " << name_ << " | " << (i + 1) << " | " << field_[i]
+       << std::endl;
   }
 }
