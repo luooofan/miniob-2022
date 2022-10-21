@@ -398,6 +398,11 @@ RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
   for (int i = 0; i < row_amount; i++) {
     char *record_data;
     const Value *values = rows->at(i).values;
+    if (nullptr == values) {
+      LOG_ERROR("Invalid argument. table name: %s, values=%p", name(), values);
+      return RC::INVALID_ARGUMENT;
+    }
+
     rc = make_record(value_num, values, record_data);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));

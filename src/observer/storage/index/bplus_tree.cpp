@@ -798,10 +798,13 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
 
   char *pdata = header_frame->data();
   IndexFileHeader *file_header = (IndexFileHeader *)pdata;
-  file_header->attr_length = attr_length;
-  file_header->attr_offset = attr_offset;
+  for (size_t i = 0; i < attr_length.size(); i++) {
+    file_header->attr_length[i] = attr_length[i];
+    file_header->attr_offset[i] = attr_offset[i];
+    file_header->attr_type[i] = attr_type[i];
+  }
+  file_header->attr_num = attr_length.size();
   file_header->key_length = length_sum + sizeof(RID);
-  file_header->attr_type = attr_type;
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size = leaf_max_size;
   file_header->root_page = BP_INVALID_PAGE_NUM;
@@ -821,8 +824,8 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
     return RC::NOMEM;
   }
 
-  key_comparator_.init(file_header->attr_type, file_header->attr_length);
-  key_printer_.init(file_header->attr_type, file_header->attr_length);
+  key_comparator_.init(attr_type, attr_length);
+  key_printer_.init(attr_type, attr_length);
   LOG_INFO("Successfully create index %s", file_name);
   return RC::SUCCESS;
 }
@@ -865,8 +868,15 @@ RC BplusTreeHandler::open(const char *file_name)
   // close old page_handle
   disk_buffer_pool->unpin_page(frame);
 
-  key_comparator_.init(file_header_.attr_type, file_header_.attr_length);
-  key_printer_.init(file_header_.attr_type, file_header_.attr_length);
+  std::vector<AttrType> attr_type;
+  std::vector<int32_t> attr_length;
+  for (int i = 0; i < file_header_.attr_num; i++) {
+    attr_type.push_back(file_header_.attr_type[i]);
+    attr_length.push_back(file_header_.attr_length[i]);
+  }
+
+  key_comparator_.init(attr_type, attr_length);
+  key_printer_.init(attr_type, attr_length);
   LOG_INFO("Successfully open index %s", file_name);
   return RC::SUCCESS;
 }
@@ -1385,7 +1395,7 @@ char *BplusTreeHandler::make_key(const char *user_key, const RID &rid)
     return nullptr;
   }
   int pos = 0;
-  for (size_t i = 0; i < file_header_.attr_length.size(); i++) {
+  for (int i = 0; i < file_header_.attr_num; i++) {
     memcpy(key + pos, user_key + pos, file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }
@@ -1691,7 +1701,7 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
     return RC::NOMEM;
   }
   int pos = 0;
-  for (size_t i = 0; i < file_header_.attr_type.size(); i++) {
+  for (int i = 0; i < file_header_.attr_num; i++) {
     memcpy(key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }

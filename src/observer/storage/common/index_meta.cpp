@@ -71,7 +71,7 @@ RC IndexMeta::from_json(const TableMeta &table, const Json::Value &json_value, I
       return RC::GENERIC_ERROR;
     }
 
-    const FieldMeta *field = table.field(field_value.asCString());
+    const FieldMeta *field = table.field(field_value[idx].asCString());
     if (nullptr == field) {
       LOG_ERROR("Deserialize index [%s]: no such field: %s", name_value.asCString(), field_value.asCString());
       return RC::SCHEMA_FIELD_MISSING;

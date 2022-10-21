@@ -200,25 +200,24 @@ struct IndexFileHeader {
   PageNum root_page;
   int32_t internal_max_size;
   int32_t leaf_max_size;
-  // int32_t attr_length;
   int32_t key_length;  // attr length + sizeof(RID)
-  std::vector<int32_t> attr_length;
-  std::vector<int32_t> attr_offset;
-  std::vector<AttrType> attr_type;
-  // AttrType attr_type;
+  int32_t attr_num;
+  int32_t attr_length[MAX_NUM];
+  int32_t attr_offset[MAX_NUM];
+  AttrType attr_type[MAX_NUM];
 
   const std::string to_string()
   {
     std::stringstream ss;
 
     ss << "attr_length:" << attr_length[0];
-    for (size_t i = 1; i < attr_length.size(); i++) {
+    for (int i = 1; i < attr_num; i++) {
       ss << "|" << attr_length[i];
     }
     ss << ","
        << "key_length:" << key_length << ","
        << "attr_type:" << attr_type[0];
-    for (size_t i = 1; i < attr_type.size(); i++) {
+    for (int i = 1; i < attr_num; i++) {
       ss << "|" << attr_type[i];
     }
     ss << "root_page:" << root_page << ","

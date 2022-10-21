@@ -522,8 +522,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = do_join(select_stmt, &scan_oper, delete_opers);
     is_single_table = false;
   } else {
-    // scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
-    scan_oper = nullptr;
+    scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[0]);
     }
@@ -684,7 +683,6 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
 {
   RC rc = RC::SUCCESS;
   Query *query = sql_event->query();
-  SessionEvent *session_event = sql_event->session_event();
   Db *db = sql_event->session_event()->session()->get_current_db();
   const char *table_name = query->sstr.desc_table.relation_name;
   Table *table = db->find_table(table_name);
