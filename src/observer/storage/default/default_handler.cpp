@@ -164,7 +164,7 @@ RC DefaultHandler::create_index(  // TO DO MULTI INDEX
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
   AttrInfo attr_name[1];
-  attr_name->name = const_cast<char *>(attribute_name);
+  attr_name[0].name = const_cast<char *>(attribute_name);
   return table->create_index(trx, false, index_name, 1, attr_name);
 }
 
