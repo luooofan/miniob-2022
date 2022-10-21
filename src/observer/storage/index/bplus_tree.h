@@ -31,7 +31,7 @@ See the Mulan PSL v2 for more details. */
 
 class AttrComparator {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_type_ = type;
     attr_length_ = length;
@@ -39,37 +39,51 @@ public:
 
   int attr_length() const
   {
-    return attr_length_;
+    int sum_len = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      sum_len += attr_length_[i];
+    }
+    return sum_len;  // TO DO MULTI INDEX
   }
 
   int operator()(const char *v1, const char *v2) const
   {
-    switch (attr_type_) {
-      case INTS:
-      case DATES: {
-        return compare_int((void *)v1, (void *)v2);
-      } break;
-      case FLOATS: {
-        return compare_float((void *)v1, (void *)v2);
+    int rc = 0;
+    int pos = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      switch (attr_type_[i]) {
+        case INTS:
+        case DATES: {
+          rc = compare_int((void *)(v1 + pos), (void *)(v2 + pos));
+        } break;
+        case FLOATS: {
+          rc = compare_float((void *)(v1 + pos), (void *)(v2 + pos));
+        } break;
+        case CHARS: {
+          rc = compare_string((void *)(v1 + pos), attr_length_[i], (void *)(v2 + pos), attr_length_[i]);
+        } break;
+        default: {
+          LOG_ERROR("unknown attr type. %d", attr_type_[i]);
+          abort();
+        }
       }
-      case CHARS: {
-        return compare_string((void *)v1, attr_length_, (void *)v2, attr_length_);
+
+      if (rc != 0) {
+        return rc;
       }
-      default: {
-        LOG_ERROR("unknown attr type. %d", attr_type_);
-        abort();
-      }
+      pos += attr_length_[i];
     }
+    return rc;
   }
 
 private:
-  AttrType attr_type_;
-  int attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int> attr_length_;
 };
 
 class KeyComparator {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_comparator_.init(type, length);
   }
@@ -86,7 +100,7 @@ public:
       return result;
     }
 
-    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());
+    const RID *rid1 = (const RID *)(v1 + attr_comparator_.attr_length());  // TO DO MULTI INDEX
     const RID *rid2 = (const RID *)(v2 + attr_comparator_.attr_length());
     return RID::compare(rid1, rid2);
   }
@@ -97,7 +111,7 @@ private:
 
 class AttrPrinter {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_type_ = type;
     attr_length_ = length;
@@ -105,43 +119,50 @@ public:
 
   int attr_length() const
   {
-    return attr_length_;
+    int len_sum = 0;
+    for (size_t i = 0; i < attr_length_.size(); i++) {
+      len_sum += attr_length_[i];
+    }
+    return len_sum;
   }
 
   std::string operator()(const char *v) const
   {
-    switch (attr_type_) {
-      case INTS: {
-        return std::to_string(*(int *)v);
-      } break;
-      case FLOATS: {
-        return std::to_string(*(float *)v);
-      }
-      case CHARS: {
-        std::string str;
-        for (int i = 0; i < attr_length_; i++) {
-          if (v[i] == 0) {
-            break;
-          }
-          str.push_back(v[i]);
+    for (size_t i = 0; i < attr_type_.size(); i++) {
+      switch (attr_type_[i]) {
+        case INTS: {
+          return std::to_string(*(int *)v);
+        } break;
+        case FLOATS: {
+          return std::to_string(*(float *)v);
         }
-        return str;
-      }
-      default: {
-        LOG_ERROR("unknown attr type. %d", attr_type_);
-        abort();
+        case CHARS: {
+          std::string str;
+          for (int i = 0; i < attr_length_[i]; i++) {
+            if (v[i] == 0) {
+              break;
+            }
+            str.push_back(v[i]);
+          }
+          return str;
+        }
+        default: {
+          LOG_ERROR("unknown attr type. %d", attr_type_[i]);
+          abort();
+        }
       }
     }
+    return nullptr;
   }
 
 private:
-  AttrType attr_type_;
-  int attr_length_;
+  std::vector<AttrType> attr_type_;
+  std::vector<int> attr_length_;
 };
 
 class KeyPrinter {
 public:
-  void init(AttrType type, int length)
+  void init(std::vector<AttrType> type, std::vector<int> length)
   {
     attr_printer_.init(type, length);
   }
@@ -179,18 +200,27 @@ struct IndexFileHeader {
   PageNum root_page;
   int32_t internal_max_size;
   int32_t leaf_max_size;
-  int32_t attr_length;
   int32_t key_length;  // attr length + sizeof(RID)
-  AttrType attr_type;
+  int32_t attr_num;
+  int32_t attr_length[MAX_NUM];
+  int32_t attr_offset[MAX_NUM];
+  AttrType attr_type[MAX_NUM];
 
   const std::string to_string()
   {
     std::stringstream ss;
 
-    ss << "attr_length:" << attr_length << ","
+    ss << "attr_length:" << attr_length[0];
+    for (int i = 1; i < attr_num; i++) {
+      ss << "|" << attr_length[i];
+    }
+    ss << ","
        << "key_length:" << key_length << ","
-       << "attr_type:" << attr_type << ","
-       << "root_page:" << root_page << ","
+       << "attr_type:" << attr_type[0];
+    for (int i = 1; i < attr_num; i++) {
+      ss << "|" << attr_type[i];
+    }
+    ss << "root_page:" << root_page << ","
        << "internal_max_size:" << internal_max_size << ","
        << "leaf_max_size:" << leaf_max_size << ";";
 
@@ -392,8 +422,8 @@ public:
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(
-      const char *file_name, AttrType attr_type, int attr_length, int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
+      std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * 打开名为fileName的索引文件。

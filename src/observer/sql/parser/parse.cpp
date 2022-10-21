@@ -178,7 +178,7 @@ void inserts_init(Inserts *inserts, const char *relation_name)
   inserts->relation_name = strdup(relation_name);
 }
 
-int inserts_data_init(Inserts *inserts, Value values[], size_t value_num)
+int inserts_append_data(Inserts *inserts, Value values[], size_t value_num)
 {
   assert(value_num <= sizeof(inserts->values[0]) / sizeof(inserts->values[0][0]));
   if (inserts->value_num == 0) {
@@ -289,23 +289,32 @@ void drop_table_destroy(DropTable *drop_table)
   drop_table->relation_name = nullptr;
 }
 
-void create_index_init(
-    CreateIndex *create_index, const char *index_name, const char *relation_name, const char *attr_name)
+void create_index_init(CreateIndex *create_index, bool unique, const char *index_name, const char *relation_name)
 {
   create_index->index_name = strdup(index_name);
   create_index->relation_name = strdup(relation_name);
-  create_index->attribute_name = strdup(attr_name);
+  create_index->unique = unique;
+}
+
+void create_index_append_attribute(CreateIndex *create_index, const char *attr_name)
+{
+  int num = create_index->attribute_count;
+  create_index->attribute_name[num].name = strdup(attr_name);
+  create_index->attribute_count++;
 }
 
 void create_index_destroy(CreateIndex *create_index)
 {
   free(create_index->index_name);
   free(create_index->relation_name);
-  free(create_index->attribute_name);
 
   create_index->index_name = nullptr;
   create_index->relation_name = nullptr;
-  create_index->attribute_name = nullptr;
+  for (int i = 0; i < create_index->attribute_count; i++) {
+    attr_info_destroy(&create_index->attribute_name[i]);
+  }
+  create_index->attribute_count = 0;
+  create_index->unique = false;
 }
 
 void drop_index_init(DropIndex *drop_index, const char *index_name)
@@ -403,8 +412,8 @@ void query_reset(Query *query)
     } break;
     case SCF_SHOW_TABLES:
       break;
-
-    case SCF_DESC_TABLE: {
+    case SCF_DESC_TABLE:
+    case SCF_SHOW_INDEX: {
       desc_table_destroy(&query->sstr.desc_table);
     } break;
 

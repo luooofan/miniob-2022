@@ -204,20 +204,27 @@ RC Table::open(const char *meta_file, const char *base_dir, CLogManager *clog_ma
   const int index_num = table_meta_.index_num();
   for (int i = 0; i < index_num; i++) {
     const IndexMeta *index_meta = table_meta_.index(i);
-    const FieldMeta *field_meta = table_meta_.field(index_meta->field());
-    if (field_meta == nullptr) {
-      LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
-          name(),
-          index_meta->name(),
-          index_meta->field());
-      // skip cleanup
-      //  do all cleanup action in destructive Table function
-      return RC::GENERIC_ERROR;
+    const std::vector<std::string> *index_field_names = index_meta->field();
+    std::vector<FieldMeta> field_metas;
+
+    for (size_t i = 0; i < index_field_names->size(); i++) {
+      const char *field_name = index_field_names->at(i).data();
+      const FieldMeta *field_meta = table_meta_.field(field_name);
+      if (field_meta == nullptr) {
+        LOG_ERROR("Found invalid index meta info which has a non-exists field. table=%s, index=%s, field=%s",
+            name(),
+            index_meta->name(),
+            index_meta->field());
+        // skip cleanup
+        //  do all cleanup action in destructive Table function
+        return RC::GENERIC_ERROR;
+      }
+      field_metas.push_back(*field_meta);
     }
 
     BplusTreeIndex *index = new BplusTreeIndex();
     std::string index_file = table_index_file(base_dir, name(), index_meta->name());
-    rc = index->open(index_file.c_str(), *index_meta, *field_meta);
+    rc = index->open(index_file.c_str(), *index_meta, field_metas);
     if (rc != RC::SUCCESS) {
       delete index;
       LOG_ERROR("Failed to open index. table=%s, index=%s, file=%s, rc=%d:%s",
@@ -321,6 +328,9 @@ RC Table::insert_record(Trx *trx, Record *record)
           rc2,
           strrc(rc2));
     }
+    if (trx != nullptr) {
+      rc2 = trx->delete_record(this, record);
+    }
     return rc;
   }
 
@@ -388,6 +398,11 @@ RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
   for (int i = 0; i < row_amount; i++) {
     char *record_data;
     const Value *values = rows->at(i).values;
+    if (nullptr == values) {
+      LOG_ERROR("Invalid argument. table name: %s, values=%p", name(), values);
+      return RC::INVALID_ARGUMENT;
+    }
+
     rc = make_record(value_num, values, record_data);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
@@ -402,7 +417,7 @@ RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
     if (RC::SUCCESS != rc) {
       LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
 
-      for (int j = 0; j < records_done.size(); j++) {
+      for (size_t j = 0; j < records_done.size(); j++) {
         rc = delete_record(trx, &records_done[j]);
         if (RC::SUCCESS != rc) {
           LOG_ERROR("Failed to rollback record [%p]. rc=%d:%s", records_done[j], rc, strrc(rc));
@@ -666,37 +681,53 @@ static RC insert_index_record_reader_adapter(Record *record, void *context)
   return inserter.insert_index(record);
 }
 
-RC Table::create_index(Trx *trx, const char *index_name, const char *attribute_name)
+RC Table::create_index(Trx *trx, bool unique, const char *index_name, int attr_num, const AttrInfo *attribute_name)
 {
-  if (common::is_blank(index_name) || common::is_blank(attribute_name)) {
-    LOG_INFO("Invalid input arguments, table name is %s, index_name is blank or attribute_name is blank", name());
+  if (common::is_blank(index_name)) {
+    LOG_INFO("Invalid input arguments, table name is %s, index_name is blank", name());
     return RC::INVALID_ARGUMENT;
   }
-  if (table_meta_.index(index_name) != nullptr || table_meta_.find_index_by_field((attribute_name))) {
-    LOG_INFO("Invalid input arguments, table name is %s, index %s exist or attribute %s exist index",
-        name(),
-        index_name,
-        attribute_name);
+  if (table_meta_.index(index_name) != nullptr) {
+    LOG_INFO("Invalid input arguments, table name is %s, index %s exist", name(), index_name);
     return RC::SCHEMA_INDEX_EXIST;
   }
 
-  const FieldMeta *field_meta = table_meta_.field(attribute_name);
-  if (!field_meta) {
-    LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
-    return RC::SCHEMA_FIELD_MISSING;
+  std::vector<std::string> field_names;
+  for (int i = 0; i < attr_num; i++) {
+    if (common::is_blank(attribute_name[i].name)) {
+      LOG_INFO("Invalid input arguments, table name is %s, attribute_name is blank", name());
+      return RC::INVALID_ARGUMENT;
+    }
+    std::string field_name = attribute_name[i].name;
+    field_names.push_back(field_name);
+  }
+  if (table_meta_.find_index_by_field(field_names)) {
+    LOG_INFO("Invalid input arguments, table name is %s, attribute %s exist index", name(), index_name, attribute_name);
+    return RC::SCHEMA_INDEX_EXIST;
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, *field_meta);
+  RC rc = new_index_meta.init(index_name, field_names);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
     return rc;
   }
 
+  std::vector<FieldMeta> field_metas;
+  for (int i = 0; i < attr_num; i++) {
+    const FieldMeta *field_meta = table_meta_.field(attribute_name[i].name);
+    if (!field_meta) {
+      LOG_INFO("Invalid input arguments, there is no field of %s in table:%s.", attribute_name, name());
+      return RC::SCHEMA_FIELD_MISSING;
+    }
+    FieldMeta tmp_field_meat = *field_meta;
+    field_metas.push_back(tmp_field_meat);
+  }
+
   // 创建索引相关数据
   BplusTreeIndex *index = new BplusTreeIndex();
   std::string index_file = table_index_file(base_dir_.c_str(), name(), index_name);
-  rc = index->create(index_file.c_str(), new_index_meta, *field_meta);
+  rc = index->create(index_file.c_str(), new_index_meta, field_metas);
   if (rc != RC::SUCCESS) {
     delete index;
     LOG_ERROR("Failed to create bplus tree index. file name=%s, rc=%d:%s", index_file.c_str(), rc, strrc(rc));

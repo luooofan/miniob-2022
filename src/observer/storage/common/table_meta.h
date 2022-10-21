@@ -51,6 +51,7 @@ public:
 
   const IndexMeta *index(const char *name) const;
   const IndexMeta *find_index_by_field(const char *field) const;
+  const IndexMeta *find_index_by_field(std::vector<std::string> field) const;
   const IndexMeta *index(int i) const;
   int index_num() const;
 
@@ -62,6 +63,7 @@ public:
   int get_serial_size() const override;
   void to_string(std::string &output) const override;
   void desc(std::ostream &os) const;
+  void show_index(std::ostream &os) const;
 
 protected:
   static RC init_sys_fields();
