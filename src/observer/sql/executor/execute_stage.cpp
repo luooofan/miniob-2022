@@ -522,7 +522,8 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     rc = do_join(select_stmt, &scan_oper, delete_opers);
     is_single_table = false;
   } else {
-    scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
+    // scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
+    scan_oper = nullptr;
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[0]);
     }
