@@ -691,7 +691,7 @@ RC ExecuteStage::do_show_index(SQLStageEvent *sql_event)
   if (table != nullptr) {
     table->table_meta().show_index(ss);
   } else {
-    session_event->set_response("FAILURE\n");
+    ss << "FAILURE" << std::endl;
   }
   sql_event->session_event()->set_response(ss.str().c_str());
   return rc;
