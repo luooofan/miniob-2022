@@ -30,11 +30,10 @@ class IndexMeta {
 public:
   IndexMeta() = default;
 
-  RC init(const char *name, std::vector<std::string> field);
+  RC init(const char *name, bool unique, std::vector<std::string> field);
 
 public:
   const char *name() const;
-  // const char *field() const;
 
   void desc(std::ostream &os) const;
   void show(std::ostream &os, const char *table_name) const;

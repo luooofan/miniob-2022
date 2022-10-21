@@ -707,7 +707,7 @@ RC Table::create_index(Trx *trx, bool unique, const char *index_name, int attr_n
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, field_names);
+  RC rc = new_index_meta.init(index_name, unique, field_names);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
     return rc;

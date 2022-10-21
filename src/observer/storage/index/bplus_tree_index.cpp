@@ -111,7 +111,8 @@ RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
     pos += field_meta_[i].len();
   }
 
-  return index_handler_.insert_entry(user_key, rid);
+  bool unique = index_meta_.is_unique();
+  return index_handler_.insert_entry(user_key, rid, unique);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)

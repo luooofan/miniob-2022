@@ -1387,7 +1387,7 @@ RC BplusTreeHandler::create_new_tree(const char *key, const RID *rid)
   return rc;
 }
 
-char *BplusTreeHandler::make_key(const char *user_key, const RID &rid)
+char *BplusTreeHandler::make_key(const char *user_key, const RID &rid, bool unique)
 {
   char *key = (char *)mem_pool_item_->alloc();
   if (key == nullptr) {
@@ -1399,7 +1399,12 @@ char *BplusTreeHandler::make_key(const char *user_key, const RID &rid)
     memcpy(key + pos, user_key + pos, file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }
-  memcpy(key + pos, &rid, sizeof(rid));
+  if (unique) {
+    memset(key + pos, 0, sizeof(rid));
+  } else {
+    memcpy(key + pos, &rid, sizeof(rid));
+  }
+
   return key;
 }
 
@@ -1408,14 +1413,14 @@ void BplusTreeHandler::free_key(char *key)
   mem_pool_item_->free(key);
 }
 
-RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid)
+RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool unique)
 {
   if (user_key == nullptr || rid == nullptr) {
     LOG_WARN("Invalid arguments, key is empty or rid is empty");
     return RC::INVALID_ARGUMENT;
   }
 
-  char *key = make_key(user_key, *rid);
+  char *key = make_key(user_key, *rid, unique);
   if (key == nullptr) {
     LOG_WARN("Failed to alloc memory for key.");
     return RC::NOMEM;
