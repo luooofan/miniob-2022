@@ -107,7 +107,9 @@ public:
 
   void to_string(std::ostream &os) const override;
 
-  static void get_fieldexprs(const Expression *expr, std::vector<FieldExpr *> &field_exprs);
+  bool in_expression(const Expression *expr) const;
+
+  static void get_fieldexprs_without_aggrfunc(const Expression *expr, std::vector<FieldExpr *> &field_exprs);
 
 private:
   Field field_;

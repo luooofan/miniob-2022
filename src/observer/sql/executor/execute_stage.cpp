@@ -563,20 +563,38 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   // 2.3 get normal field_exprs from projects
   std::vector<FieldExpr *> field_exprs;
-  if (0 != aggr_exprs.size()) {
-    for (auto project : select_stmt->projects()) {
-      FieldExpr::get_fieldexprs(project, field_exprs);
+  for (auto project : select_stmt->projects()) {
+    FieldExpr::get_fieldexprs_without_aggrfunc(project, field_exprs);
+  }
+
+  GroupByStmt *groupby_stmt = select_stmt->groupby_stmt();
+  // 2.4 do check (we should do this check earlier actually)
+  if (!aggr_exprs.empty() && !field_exprs.empty()) {
+    if (nullptr == groupby_stmt) {
+      return RC::SQL_SYNTAX;
+    }
+    for (auto field_expr : field_exprs) {
+      bool in_groupby = false;
+      for (auto groupby_unit : groupby_stmt->groupby_units()) {
+        if (field_expr->in_expression(groupby_unit->expr())) {
+          in_groupby = true;
+          break;
+        }
+      }
+      if (!in_groupby) {
+        return RC::SQL_SYNTAX;
+      }
     }
   }
 
-  // 2.4 gen groupby oper
-  GroupByStmt *empty_groupby_stmt = nullptr;
+  // 2.5 gen groupby oper
+  GroupByStmt *empty_groupby_stmt = nullptr;  // new a empty groupby stmt for no groupby fields
   DEFER([&]() {
     if (nullptr != empty_groupby_stmt) {
       delete empty_groupby_stmt;
     }
   });
-  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs, field_exprs);
+  GroupByOperator group_oper(groupby_stmt, aggr_exprs, field_exprs);
   if (0 != aggr_exprs.size()) {
     if (nullptr == select_stmt->groupby_stmt()) {
       empty_groupby_stmt = new GroupByStmt();

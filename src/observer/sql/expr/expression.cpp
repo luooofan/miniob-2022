@@ -31,7 +31,26 @@ RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
   return tuple.find_cell(field_, cell);
 }
-void FieldExpr::get_fieldexprs(const Expression *expr, std::vector<FieldExpr *> &field_exprs)
+bool FieldExpr::in_expression(const Expression *expr) const
+{
+  switch (expr->type()) {
+    case ExprType::FIELD: {
+      return field_.equal(((const FieldExpr *)expr)->field_);
+    }
+    case ExprType::AGGRFUNCTION: {
+      const AggrFuncExpression *afexp = (const AggrFuncExpression *)expr;
+      return in_expression(&afexp->fieldexpr());
+    }
+    case ExprType::BINARY: {
+      const BinaryExpression *bexp = (const BinaryExpression *)expr;
+      return in_expression(bexp->get_left()) || in_expression(bexp->get_right());
+    }
+    default:
+      break;
+  }
+  return false;
+}
+void FieldExpr::get_fieldexprs_without_aggrfunc(const Expression *expr, std::vector<FieldExpr *> &field_exprs)
 {
   switch (expr->type()) {
     case ExprType::FIELD: {
@@ -40,14 +59,14 @@ void FieldExpr::get_fieldexprs(const Expression *expr, std::vector<FieldExpr *> 
       break;
     }
     case ExprType::AGGRFUNCTION: {
-      const AggrFuncExpression *afexp = (const AggrFuncExpression *)expr;
-      get_fieldexprs(&afexp->fieldexpr(), field_exprs);
+      // const AggrFuncExpression *afexp = (const AggrFuncExpression *)expr;
+      // get_fieldexprs_without_aggrfunc(&afexp->fieldexpr(), field_exprs);
       break;
     }
     case ExprType::BINARY: {
       const BinaryExpression *bexp = (const BinaryExpression *)expr;
-      get_fieldexprs(bexp->get_left(), field_exprs);
-      get_fieldexprs(bexp->get_right(), field_exprs);
+      get_fieldexprs_without_aggrfunc(bexp->get_left(), field_exprs);
+      get_fieldexprs_without_aggrfunc(bexp->get_right(), field_exprs);
       break;
     }
     default:
