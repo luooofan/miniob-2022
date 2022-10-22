@@ -20,7 +20,6 @@ BplusTreeIndex::~BplusTreeIndex() noexcept
   close();
 }
 
-// RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, const FieldMeta &field_meta)
 RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, std::vector<FieldMeta> field_meta)
 {
   if (inited_) {
@@ -99,25 +98,14 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  int len_sum = 0;
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    len_sum += field_meta_[i].len();
-  }
-
-  int pos = 0;
-  char user_key[len_sum];
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    memcpy(user_key + pos, record + field_meta_[i].offset(), field_meta_[i].len());
-    pos += field_meta_[i].len();
-  }
-
   bool unique = index_meta_.is_unique();
-  return index_handler_.insert_entry(user_key, rid, unique);
+  return index_handler_.insert_entry(record, rid, unique);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
-  return index_handler_.delete_entry(record, rid);
+  bool unique = index_meta_.is_unique();
+  return index_handler_.delete_entry(record, rid, unique);
 }
 
 IndexScanner *BplusTreeIndex::create_scanner(

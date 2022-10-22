@@ -450,7 +450,7 @@ public:
    * @return RECORD_INVALID_KEY 指定值不存在
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC delete_entry(const char *user_key, const RID *rid);
+  RC delete_entry(const char *user_key, const RID *rid, bool unique);
 
   bool is_empty() const;
 

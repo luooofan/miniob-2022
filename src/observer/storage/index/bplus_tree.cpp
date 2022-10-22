@@ -1420,7 +1420,19 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool uni
     return RC::INVALID_ARGUMENT;
   }
 
-  char *key = make_key(user_key, *rid, unique);
+  char *fixed_user_key = (char *)mem_pool_item_->alloc();
+  if (nullptr == fixed_user_key) {
+    LOG_WARN("Failed to alloc memory for key. size=%d", file_header_.key_length);
+    return RC::NOMEM;
+  }
+  int pos = 0;
+  for (size_t i = 0; i < file_header_.attr_num; i++) {
+    memcpy(fixed_user_key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
+    pos += file_header_.attr_length[i];
+  }
+
+  char *key = make_key(fixed_user_key, *rid, unique);
+  mem_pool_item_->free(fixed_user_key);
   if (key == nullptr) {
     LOG_WARN("Failed to alloc memory for key.");
     return RC::NOMEM;
@@ -1698,7 +1710,7 @@ RC BplusTreeHandler::delete_entry_internal(Frame *leaf_frame, const char *key)
   return coalesce_or_redistribute<LeafIndexNodeHandler>(leaf_frame);
 }
 
-RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
+RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid, bool unique)
 {
   char *key = (char *)mem_pool_item_->alloc();
   if (nullptr == key) {
@@ -1710,7 +1722,11 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid)
     memcpy(key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }
-  memcpy(key + pos, rid, sizeof(*rid));
+  if (unique) {
+    memset(key + pos, 0, sizeof(*rid));
+  } else {
+    memcpy(key + pos, rid, sizeof(*rid));
+  }
 
   Frame *leaf_frame;
   RC rc = find_leaf(key, leaf_frame);
