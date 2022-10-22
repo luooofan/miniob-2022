@@ -55,10 +55,11 @@ RC SortOperator::fetch_and_sort_table()
   // print_info();
 
   // then sort table
-  bool order[units.size()];  // specify asc or desc
+  bool order[units.size()];  // specify 1 asc or 2 desc
   for (std::vector<OrderByUnit *>::size_type i = 0; i < units.size(); ++i) {
     order[i] = units[i]->sort_type();
   }
+  // consider null
   auto cmp = [&order](const CmpPair &a, const CmpPair &b) {
     auto &cells_a = a.first;
     auto &cells_b = b.first;
@@ -66,6 +67,15 @@ RC SortOperator::fetch_and_sort_table()
     for (size_t i = 0; i < cells_a.size(); ++i) {
       auto &cell_a = cells_a[i];
       auto &cell_b = cells_b[i];
+      if (cell_a.is_null() && cell_b.is_null()) {
+        continue;
+      }
+      if (cell_a.is_null()) {
+        return order[i] ? true : false;
+      }
+      if (cell_b.is_null()) {
+        return order[i] ? false : true;
+      }
       if (cell_a != cell_b) {
         return order[i] ? cell_a < cell_b : cell_a > cell_b;
       }
