@@ -395,17 +395,25 @@ public:
     if (tuple_ == nullptr) {
       return RC::GENERIC_ERROR;
     }
-    // TODO(wbj) O(n) -> O(1)
-    for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
-      AggrFuncExpr &expr = *aggr_exprs_[i];
+    if (field.with_aggr()) {
+      for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
+        AggrFuncExpression &expr = *aggr_exprs_[i];
+        if (field.equal(expr.field()) && expr.get_aggr_func_type() == field.get_aggr_type()) {
+          cell = aggr_results_[i];
+          LOG_INFO("Field is found in aggr_exprs");
+          return RC::SUCCESS;
+        }
+      }
+    }
+    for (size_t i = 0; i < field_exprs_.size(); ++i) {
+      FieldExpr &expr = *field_exprs_[i];
       if (field.equal(expr.field())) {
-        cell = aggr_results_[i];
-        LOG_INFO("Field is found in aggr_exprs");
+        cell = field_results_[i];
+        LOG_INFO("Field is found in field_exprs");
         return RC::SUCCESS;
       }
     }
-    RC rc = tuple_->find_cell(field, cell);
-    return rc;
+    return RC::NOTFOUND;
   }
 
   void get_record(CompoundRecord &record) const override
@@ -431,9 +439,14 @@ public:
     return tuple_->cell_spec_at(index, spec);
   }
 
-  const std::vector<AggrFuncExpr *> &get_aggr_exprs() const
+  const std::vector<AggrFuncExpression *> &get_aggr_exprs() const
   {
     return aggr_exprs_;
+  }
+
+  const std::vector<FieldExpr *> &get_field_exprs() const
+  {
+    return field_exprs_;
   }
 
   void do_aggregate_first();
@@ -442,15 +455,21 @@ public:
 
   void do_aggregate_done();
 
-  void init(const std::vector<AggrFuncExpr *> &aggr_expr)
+  void init(const std::vector<AggrFuncExpression *> &aggr_exprs, const std::vector<FieldExpr *> &field_exprs)
   {
-    aggr_results_.reserve(aggr_expr.size());
-    aggr_exprs_ = aggr_expr;
+    aggr_results_.resize(aggr_exprs.size());
+    aggr_exprs_ = aggr_exprs;
+    field_results_.resize(field_exprs.size());
+    field_exprs_ = field_exprs;
   }
 
 private:
   int count_ = 0;
+  std::vector<TupleCell> field_results_;
   std::vector<TupleCell> aggr_results_;
-  std::vector<AggrFuncExpr *> aggr_exprs_;  // only use these AggrFuncExpr's type and field info
+
+  // not own these below
+  std::vector<FieldExpr *> field_exprs_;
+  std::vector<AggrFuncExpression *> aggr_exprs_;  // only use these AggrFuncExpr's type and field info
   Tuple *tuple_ = nullptr;
 };

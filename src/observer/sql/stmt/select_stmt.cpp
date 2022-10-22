@@ -13,6 +13,8 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/orderby_stmt.h"
 #include "sql/stmt/filter_stmt.h"
@@ -36,6 +38,11 @@ SelectStmt::~SelectStmt()
   if (nullptr != orderby_stmt_) {
     delete orderby_stmt_;
     orderby_stmt_ = nullptr;
+  }
+
+  if (nullptr != orderby_stmt_for_groupby_) {
+    delete orderby_stmt_for_groupby_;
+    orderby_stmt_for_groupby_ = nullptr;
   }
 
   if (nullptr != groupby_stmt_) {
@@ -117,7 +124,8 @@ RC gen_project_expression(Expr *expr, const std::unordered_map<std::string, Tabl
         if (rc != RC::SUCCESS) {
           return rc;
         }
-        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
         break;
       }
       case FUNC_ROUND: {
@@ -131,7 +139,8 @@ RC gen_project_expression(Expr *expr, const std::unordered_map<std::string, Tabl
             return rc;
           }
         }
-        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
         break;
       }
       case FUNC_DATE_FORMAT: {
@@ -143,10 +152,37 @@ RC gen_project_expression(Expr *expr, const std::unordered_map<std::string, Tabl
         if (rc != RC::SUCCESS) {
           return rc;
         }
-        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
         break;
       }
     }
+  } else if (AGGRFUNC == expr->type) {
+    // TODO(wbj)
+    if (UNARY == expr->afexp->param->type && 0 == expr->afexp->param->uexp->is_attr) {
+      // count(*) count(1) count(Value)
+      assert(AggrFuncType::COUNT == expr->afexp->type);
+      // substitue * or 1 with some field
+      Expression *tmp_value_exp = nullptr;
+      RC rc = gen_project_expression(expr->afexp->param, table_map, tables, tmp_value_exp);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      assert(ExprType::VALUE == tmp_value_exp->type());
+      auto aggr_func_expr = new AggrFuncExpression(
+          AggrFuncType::COUNT, new FieldExpr(tables[0], tables[0]->table_meta().field(1)), with_brace);
+      aggr_func_expr->set_param_value((ValueExpr *)tmp_value_exp);
+      res_expr = aggr_func_expr;
+      return RC::SUCCESS;
+    }
+    Expression *param = nullptr;
+    RC rc = gen_project_expression(expr->afexp->param, table_map, tables, param);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    assert(nullptr != param && ExprType::FIELD == param->type());
+    res_expr = new AggrFuncExpression(expr->afexp->type, (FieldExpr *)param, with_brace);
+    return RC::SUCCESS;
   }
   return RC::SUCCESS;
 }

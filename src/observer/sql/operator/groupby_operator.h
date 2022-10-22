@@ -7,9 +7,11 @@
 
 class GroupByOperator : public Operator {
 public:
-  GroupByOperator(GroupByStmt *groupby_stmt, const std::vector<AggrFuncExpr *> &aggr_expr) : groupby_stmt_(groupby_stmt)
+  GroupByOperator(GroupByStmt *groupby_stmt, const std::vector<AggrFuncExpression *> &aggr_exprs,
+      const std::vector<FieldExpr *> &field_exprs)
+      : groupby_stmt_(groupby_stmt)
   {
-    tuple_.init(aggr_expr);
+    tuple_.init(aggr_exprs, field_exprs);
   }
 
   virtual ~GroupByOperator() = default;

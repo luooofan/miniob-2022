@@ -31,6 +31,30 @@ RC FieldExpr::get_value(const Tuple &tuple, TupleCell &cell) const
 {
   return tuple.find_cell(field_, cell);
 }
+void FieldExpr::get_fieldexprs(const Expression *expr, std::vector<FieldExpr *> &field_exprs)
+{
+  switch (expr->type()) {
+    case ExprType::FIELD: {
+      const FieldExpr *fdexp = (const FieldExpr *)expr;
+      field_exprs.emplace_back(const_cast<FieldExpr *>(fdexp));
+      break;
+    }
+    case ExprType::AGGRFUNCTION: {
+      const AggrFuncExpression *afexp = (const AggrFuncExpression *)expr;
+      get_fieldexprs(&afexp->fieldexpr(), field_exprs);
+      break;
+    }
+    case ExprType::BINARY: {
+      const BinaryExpression *bexp = (const BinaryExpression *)expr;
+      get_fieldexprs(bexp->get_left(), field_exprs);
+      get_fieldexprs(bexp->get_right(), field_exprs);
+      break;
+    }
+    default:
+      break;
+  }
+  return;
+}
 
 void ValueExpr::to_string(std::ostream &os) const
 {
@@ -116,7 +140,7 @@ void BinaryExpression::to_string(std::ostream &os) const
   }
 }
 
-std::string AggrFuncExpr::get_func_name() const
+std::string AggrFuncExpression::get_func_name() const
 {
   switch (type_) {
     case AggrFuncType::MAX:
@@ -134,13 +158,13 @@ std::string AggrFuncExpr::get_func_name() const
   }
   return "unknown_aggr_fun";
 }
-AttrType AggrFuncExpr::get_return_type() const
+AttrType AggrFuncExpression::get_return_type() const
 {
   switch (type_) {
     case AggrFuncType::MAX:
     case AggrFuncType::MIN:
     case AggrFuncType::SUM:
-      return field_.attr_type();
+      return field_->attr_type();
       break;
     case AggrFuncType::AVG:
       // TODO(wbj)
@@ -154,32 +178,37 @@ AttrType AggrFuncExpr::get_return_type() const
   }
   return UNDEFINED;
 }
-void AggrFuncExpr::to_string(std::ostream &os) const
+void AggrFuncExpression::to_string(std::ostream &os) const
 {
+  // TODO(wbj) if value_ != nullptr
   if (with_brace()) {
     os << '(';
   }
   os << get_func_name();
   os << '(';
-  os << field_.table_name();
+  os << field_->table_name();
   os << '.';
-  os << field_.field_name();
+  os << field_->field_name();
   os << ')';
   if (with_brace()) {
     os << ')';
   }
 }
-RC AggrFuncExpr::get_value(const Tuple &tuple, TupleCell &cell) const
+RC AggrFuncExpression::get_value(const Tuple &tuple, TupleCell &cell) const
 {
-  // TOOD(wbj)
-  return tuple.find_cell(field_, cell);
+  // when project tuple call this function, need to pack aggr_func_type in field
+  // the field with aggr_func_type will be used in GroupTuple.find_cell
+  Field tmp_field(field_->field());
+  tmp_field.set_aggr(type_);
+  return tuple.find_cell(tmp_field, cell);
 }
-void AggrFuncExpr::get_aggrfuncexprs(const Expression *expr, std::vector<AggrFuncExpr *> &aggrfunc_exprs)
+void AggrFuncExpression::get_aggrfuncexprs(const Expression *expr, std::vector<AggrFuncExpression *> &aggrfunc_exprs)
 {
   switch (expr->type()) {
-    case ExprType::AGGRFUNC: {
-      const AggrFuncExpr *afexp = (const AggrFuncExpr *)expr;
-      aggrfunc_exprs.emplace_back(const_cast<AggrFuncExpr *>(afexp));
+    case ExprType::AGGRFUNCTION: {
+      const AggrFuncExpression *afexp = (const AggrFuncExpression *)expr;
+      aggrfunc_exprs.emplace_back(const_cast<AggrFuncExpression *>(afexp));
+      break;
     }
     case ExprType::BINARY: {
       const BinaryExpression *bexp = (const BinaryExpression *)expr;

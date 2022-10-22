@@ -26,9 +26,9 @@ typedef struct ParserContext {
   Condition conditions[MAX_NUM];
   OrderBy orderbys[MAX_NUM];
   GroupBy groupbys[MAX_NUM];
-  AggrFuncType aggrfuncs[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
+  AggrFuncType aggrfunctype;
 } ParserContext;
 
 //获取子串
@@ -154,6 +154,7 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Expr* exp2;
   struct _Expr* exp3;
   struct _Expr* exp4;
+  struct _Expr* exp5;
   char *string;
   int number;
   float floats;
@@ -178,6 +179,7 @@ ParserContext *get_context(yyscan_t scanner)
 %type <exp2> mul_expr;
 %type <exp3> add_expr;
 %type <exp4> func_expr;
+%type <exp5> aggr_func_expr;
 
 %%
 
@@ -484,7 +486,59 @@ unary_expr:
     | func_expr {
       $$ = $1;
     }
+    | aggr_func_expr {
+      $$ = $1;
+    }
     ;
+
+aggr_func_type:
+    AGGR_MAX {
+      CONTEXT->aggrfunctype = MAX;
+    }
+    | AGGR_MIN {
+      CONTEXT->aggrfunctype = MIN;
+    }
+    | AGGR_SUM {
+      CONTEXT->aggrfunctype = SUM;
+    }
+    | AGGR_AVG {
+      CONTEXT->aggrfunctype = AVG;
+    }
+    | AGGR_COUNT {
+      CONTEXT->aggrfunctype = COUNT;
+    }
+    ;
+
+aggr_func_expr:
+    aggr_func_type LBRACE add_expr RBRACE
+    {
+      AggrFuncExpr* afexpr = malloc(sizeof(AggrFuncExpr));
+      aggr_func_expr_init(afexpr, CONTEXT->aggrfunctype, $3);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_aggr_func(expr, afexpr);
+      $$ = expr;
+    }
+    | aggr_func_type LBRACE STAR RBRACE
+    {
+      if (CONTEXT->aggrfunctype != COUNT) {
+        return -1;
+      }
+      // regard as a string value
+  		value_init_string(&CONTEXT->values[CONTEXT->value_length++], "*");
+
+    	Expr *param = malloc(sizeof(Expr));
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
+      expr_init_unary(param, u_expr);
+
+      AggrFuncExpr* afexpr = malloc(sizeof(AggrFuncExpr));
+      aggr_func_expr_init(afexpr, COUNT, param);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_aggr_func(expr, afexpr);
+      $$ = expr;
+    }
+    ;
+
 func_expr:
     LENGTH LBRACE add_expr RBRACE
     {
@@ -724,7 +778,6 @@ sort_unit:
 		OrderBy orderby;
 		orderby_init(&orderby, FALSE, &attr);
 		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
-		printf("hhh\n");
 	}
 	|
 	ID DOT ID ASC
@@ -734,7 +787,6 @@ sort_unit:
 		OrderBy orderby;
 		orderby_init(&orderby, TRUE, &attr);
 		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
-		printf("hhh\n");
 	}
 	;
 sort_list:

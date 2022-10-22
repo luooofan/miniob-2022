@@ -78,17 +78,25 @@ void gen_project_name(const Expression *expr, bool is_single_table, std::string 
       result_name += ss.str();
       break;
     }
-    case ExprType::AGGRFUNC: {
+    case ExprType::AGGRFUNCTION: {
       if (expr->with_brace()) {
         result_name += '(';
       }
-      AggrFuncExpr *afexpr = (AggrFuncExpr *)expr;
-      const Field &field = afexpr->field();
-      if (!is_single_table) {
-        result_name += std::string(field.table_name()) + '.' + std::string(field.field_name());
+      AggrFuncExpression *afexpr = (AggrFuncExpression *)expr;
+      result_name += afexpr->get_func_name();
+      result_name += '(';
+      if (afexpr->is_param_value()) {
+        gen_project_name(afexpr->get_param_value(), is_single_table, result_name);
+
       } else {
-        result_name += std::string(field.field_name());
+        const Field &field = afexpr->field();
+        if (!is_single_table) {
+          result_name += std::string(field.table_name()) + '.' + std::string(field.field_name());
+        } else {
+          result_name += std::string(field.field_name());
+        }
       }
+      result_name += ')';
       if (expr->with_brace()) {
         result_name += ')';
       }

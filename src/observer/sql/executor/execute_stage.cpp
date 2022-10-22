@@ -556,19 +556,27 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   }
 
   // 2.2 get aggrfunc_exprs from projects
-  std::vector<AggrFuncExpr *> aggr_exprs;
+  std::vector<AggrFuncExpression *> aggr_exprs;
   for (auto project : select_stmt->projects()) {
-    AggrFuncExpr::get_aggrfuncexprs(project, aggr_exprs);
+    AggrFuncExpression::get_aggrfuncexprs(project, aggr_exprs);
   }
 
-  // 2.3 gen groupby oper
+  // 2.3 get normal field_exprs from projects
+  std::vector<FieldExpr *> field_exprs;
+  if (0 != aggr_exprs.size()) {
+    for (auto project : select_stmt->projects()) {
+      FieldExpr::get_fieldexprs(project, field_exprs);
+    }
+  }
+
+  // 2.4 gen groupby oper
   GroupByStmt *empty_groupby_stmt = nullptr;
   DEFER([&]() {
     if (nullptr != empty_groupby_stmt) {
       delete empty_groupby_stmt;
     }
   });
-  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs);
+  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs, field_exprs);
   if (0 != aggr_exprs.size()) {
     if (nullptr == select_stmt->groupby_stmt()) {
       empty_groupby_stmt = new GroupByStmt();

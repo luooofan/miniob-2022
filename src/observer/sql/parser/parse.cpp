@@ -89,9 +89,28 @@ void projectcol_destroy(ProjectCol *projectcol)
   projectcol->relation_name = nullptr;
 }
 
+void aggr_func_expr_init(AggrFuncExpr *func_expr, AggrFuncType type, Expr *param)
+{
+  func_expr->is_star = 0;
+  func_expr->type = type;
+  func_expr->param = param;
+}
+void aggr_func_expr_init_star(AggrFuncExpr *func_expr, AggrFuncType type)
+{
+  func_expr->is_star = 1;
+  func_expr->type = type;
+  func_expr->param = NULL;
+}
+void aggr_func_expr_destory(AggrFuncExpr *expr)
+{
+  expr_destroy(expr->param);
+  expr->param = NULL;
+}
+
 void func_expr_init_type(FuncExpr *func_expr, FuncType type)
 {
   func_expr->type = type;
+  func_expr->param_size = 0;
 }
 
 void func_expr_init_params(FuncExpr *func_expr, Expr *expr1, Expr *expr2)
@@ -106,7 +125,11 @@ void func_expr_init_params(FuncExpr *func_expr, Expr *expr1, Expr *expr2)
 
 void func_expr_destory(FuncExpr *expr)
 {
-  return;
+  expr_destroy(expr->params[0]);
+  if (expr->param_size == 2) {
+    expr_destroy(expr->params[1]);
+  }
+  expr->param_size = 0;
 }
 
 void unary_expr_init_value(UnaryExpr *expr, Value *value)
@@ -179,9 +202,19 @@ void expr_print(Expr *expr, int indent)
     binary_expr_print(expr->bexp, indent);
   }
 }
+void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
+{
+  expr->type = ExpType::AGGRFUNC;
+  expr->afexp = f_expr;
+  expr->fexp = NULL;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->with_brace = 0;
+}
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
 {
-  expr->type = 2;
+  expr->type = ExpType::AGGRFUNC;
+  expr->afexp = NULL;
   expr->fexp = f_expr;
   expr->bexp = NULL;
   expr->uexp = NULL;
@@ -189,18 +222,20 @@ void expr_init_func(Expr *expr, FuncExpr *f_expr)
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
 {
-  expr->type = 0;
+  expr->type = ExpType::UNARY;
   expr->uexp = u_expr;
   expr->bexp = NULL;
   expr->fexp = NULL;
+  expr->afexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
 {
-  expr->type = 1;
+  expr->type = ExpType::BINARY;
   expr->bexp = b_expr;
   expr->uexp = NULL;
   expr->fexp = NULL;
+  expr->afexp = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
@@ -209,13 +244,27 @@ void expr_set_with_brace(Expr *expr)
 }
 void expr_destroy(Expr *expr)
 {
-  if (expr->type == 1) {
-    binary_expr_destroy(expr->bexp);
-  } else if (expr->type == 0) {
-    unary_expr_destroy(expr->uexp);
-  } else if (expr->type == 2) {
-    func_expr_destory(expr->fexp);
+  switch (expr->type) {
+    case ExpType::UNARY:
+      unary_expr_destroy(expr->uexp);
+      expr->uexp = NULL;
+      break;
+    case ExpType::BINARY:
+      binary_expr_destroy(expr->bexp);
+      expr->bexp = NULL;
+      break;
+    case ExpType::FUNC:
+      func_expr_destory(expr->fexp);
+      expr->fexp = NULL;
+      break;
+    case ExpType::AGGRFUNC:
+      aggr_func_expr_destory(expr->afexp);
+      expr->afexp = NULL;
+      break;
+    default:
+      break;
   }
+  expr->with_brace = 0;
 }
 
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name)

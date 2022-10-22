@@ -29,7 +29,7 @@ enum class ExprType {
   FIELD,
   VALUE,
   BINARY,
-  AGGRFUNC,
+  AGGRFUNCTION,
 };
 
 class Expression {
@@ -73,6 +73,11 @@ public:
     return ExprType::FIELD;
   }
 
+  AttrType attr_type() const
+  {
+    return field_.attr_type();
+  }
+
   Field &field()
   {
     return field_;
@@ -101,6 +106,8 @@ public:
   RC get_value(const Tuple &tuple, TupleCell &cell) const override;
 
   void to_string(std::ostream &os) const override;
+
+  static void get_fieldexprs(const Expression *expr, std::vector<FieldExpr *> &field_exprs);
 
 private:
   Field field_;
@@ -202,49 +209,69 @@ public:
   void to_string(std::ostream &os) const override;
 
 private:
-  ExpOp op_ = NO_EXP_OP;
+  ExpOp op_;
   Expression *left_expr_ = nullptr;
   Expression *right_expr_ = nullptr;
   TupleCell expr_result_;
   bool is_minus_ = false;  // only used for output
 };
 
-class AggrFuncExpr : public Expression {
+class AggrFuncExpression : public Expression {
 public:
-  AggrFuncExpr() = default;
-  AggrFuncExpr(const Table *table, const FieldMeta *field, AggrFuncType type) : type_(type), field_(table, field)
+  AggrFuncExpression() = default;
+  AggrFuncExpression(AggrFuncType type, const FieldExpr *field) : type_(type), field_(field)
   {}
+  AggrFuncExpression(AggrFuncType type, const FieldExpr *field, bool with_brace) : AggrFuncExpression(type, field)
+  {
+    if (with_brace) {
+      set_with_brace();
+    }
+  }
 
-  virtual ~AggrFuncExpr() = default;
+  virtual ~AggrFuncExpression() = default;
+
+  void set_param_value(const ValueExpr *value)
+  {
+    value_ = value;
+  }
+  bool is_param_value() const
+  {
+    return nullptr != value_;
+  }
+  const ValueExpr *get_param_value() const
+  {
+    assert(nullptr != value_);
+    return value_;
+  }
 
   ExprType type() const override
   {
-    return ExprType::AGGRFUNC;
-  }
-
-  Field &field()
-  {
-    return field_;
+    return ExprType::AGGRFUNCTION;
   }
 
   const Field &field() const
   {
-    return field_;
+    return field_->field();
+  }
+
+  const FieldExpr &fieldexpr() const
+  {
+    return *field_;
   }
 
   const Table *table() const
   {
-    return field_.table();
+    return field_->table();
   }
 
   const char *table_name() const
   {
-    return field_.table_name();
+    return field_->table_name();
   }
 
   const char *field_name() const
   {
-    return field_.field_name();
+    return field_->field_name();
   }
 
   RC get_value(const Tuple &tuple, TupleCell &cell) const override;
@@ -260,9 +287,10 @@ public:
 
   void to_string(std::ostream &os) const override;
 
-  static void get_aggrfuncexprs(const Expression *expr, std::vector<AggrFuncExpr *> &aggrfunc_exprs);
+  static void get_aggrfuncexprs(const Expression *expr, std::vector<AggrFuncExpression *> &aggrfunc_exprs);
 
 private:
   AggrFuncType type_;
-  Field field_;
+  const FieldExpr *field_ = nullptr;  // don't own this. keep const.
+  const ValueExpr *value_ = nullptr;  // for count(1) count(*) count("xxx") output
 };
