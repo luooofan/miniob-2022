@@ -103,32 +103,33 @@ enum yytokentype {
   SUB = 310,
   MUL = 311,
   DIV = 312,
-  NULL_VALUE = 313,
-  NULLABLE = 314,
-  EQ = 315,
-  LT = 316,
-  GT = 317,
-  LE = 318,
-  GE = 319,
-  NE = 320,
-  LENGTH = 321,
-  ROUND = 322,
-  DATE_FORMAT = 323,
-  NUMBER = 324,
-  FLOAT = 325,
-  ID = 326,
-  PATH = 327,
-  SSS = 328,
-  STAR = 329,
-  STRING_V = 330,
-  DATE_STR = 331
+  IS = 313,
+  NULL_VALUE = 314,
+  NULLABLE = 315,
+  EQ = 316,
+  LT = 317,
+  GT = 318,
+  LE = 319,
+  GE = 320,
+  NE = 321,
+  LENGTH = 322,
+  ROUND = 323,
+  DATE_FORMAT = 324,
+  NUMBER = 325,
+  FLOAT = 326,
+  ID = 327,
+  PATH = 328,
+  SSS = 329,
+  STAR = 330,
+  STRING_V = 331,
+  DATE_STR = 332
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 156 "yacc_sql.y"
+#line 157 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -145,7 +146,7 @@ union YYSTYPE {
   float floats;
   char *position;
 
-#line 151 "yacc_sql.tab.h"
+#line 152 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1

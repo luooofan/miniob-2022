@@ -31,14 +31,16 @@ typedef struct {
 } RelAttr;
 
 typedef enum {
-  EQUAL_TO,     //"="         0
-  LESS_EQUAL,   //"<="        1
-  NOT_EQUAL,    //"<>"        2
-  LESS_THAN,    //"<"         3
-  GREAT_EQUAL,  //">="        4
-  GREAT_THAN,   //">"         5
-  LIKE_OP,      //"like"      6
-  NOT_LIKE_OP,  //"not like"  7
+  EQUAL_TO,     //"="            0
+  LESS_EQUAL,   //"<="           1
+  NOT_EQUAL,    //"<>"           2
+  LESS_THAN,    //"<"            3
+  GREAT_EQUAL,  //">="           4
+  GREAT_THAN,   //">"            5
+  LIKE_OP,      //"like"         6
+  NOT_LIKE_OP,  //"not like"     7
+  IS_NULL,      //"is null"      8
+  IS_NOT_NULL,  //"is not null"  9
   NO_OP
 } CompOp;
 
