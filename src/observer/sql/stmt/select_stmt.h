@@ -59,6 +59,10 @@ public:
   {
     return orderby_stmt_;
   }
+  OrderByStmt *orderby_stmt_for_groupby() const
+  {
+    return orderby_stmt_for_groupby_;
+  }
   GroupByStmt *groupby_stmt() const
   {
     return groupby_stmt_;
@@ -71,5 +75,6 @@ private:
   std::vector<Table *> tables_;
   FilterStmt *filter_stmt_ = nullptr;
   OrderByStmt *orderby_stmt_ = nullptr;
+  OrderByStmt *orderby_stmt_for_groupby_ = nullptr;
   GroupByStmt *groupby_stmt_ = nullptr;
 };

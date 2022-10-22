@@ -42,6 +42,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_operator.h"
 #include "sql/operator/join_operator.h"
 #include "sql/operator/sort_operator.h"
+#include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -540,23 +541,52 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   });
 
   Operator *top_op = scan_oper;
+
+  // 1. process where clause
   PredicateOperator pred_oper(select_stmt->filter_stmt());
   pred_oper.add_child(top_op);
   top_op = &pred_oper;
 
-  std::vector<AggrFuncExpr *> aggr_exprs;
-  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs);
-  if (nullptr != select_stmt->groupby_stmt()) {
-    group_oper.add_child(top_op);
-    // TODO add sort oper as child
-    top_op = &group_oper;
+  // 2 process groupby clause and aggrfunc fileds
+  // 2.1 gen sort oper for groupby
+  SortOperator sort_oper_for_groupby(select_stmt->orderby_stmt_for_groupby());
+  if (nullptr != select_stmt->orderby_stmt_for_groupby()) {
+    sort_oper_for_groupby.add_child(top_op);
+    top_op = &sort_oper_for_groupby;
   }
 
+  // 2.2 get aggrfunc_exprs from projects
+  std::vector<AggrFuncExpr *> aggr_exprs;
+  for (auto project : select_stmt->projects()) {
+    AggrFuncExpr::get_aggrfuncexprs(project, aggr_exprs);
+  }
+
+  // 2.3 gen groupby oper
+  GroupByStmt *empty_groupby_stmt = nullptr;
+  DEFER([&]() {
+    if (nullptr != empty_groupby_stmt) {
+      delete empty_groupby_stmt;
+    }
+  });
+  GroupByOperator group_oper(select_stmt->groupby_stmt(), aggr_exprs);
+  if (0 != aggr_exprs.size()) {
+    if (nullptr == select_stmt->groupby_stmt()) {
+      empty_groupby_stmt = new GroupByStmt();
+      group_oper.set_groupby_stmt(empty_groupby_stmt);
+    }
+    group_oper.add_child(top_op);
+    top_op = &group_oper;
+  }
+  // TODO having
+
+  // 3. process orderby clause
   SortOperator sort_oper(select_stmt->orderby_stmt());
   if (nullptr != select_stmt->orderby_stmt()) {
     sort_oper.add_child(top_op);
     top_op = &sort_oper;
   }
+
+  // 4. process select clause
   ProjectOperator project_oper;
   project_oper.add_child(top_op);
   top_op = &project_oper;

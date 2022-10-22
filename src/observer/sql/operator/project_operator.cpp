@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include <sstream>
 #include "common/log/log.h"
+#include "sql/expr/expression.h"
 #include "sql/operator/project_operator.h"
 #include "storage/record/record.h"
 #include "storage/common/table.h"
@@ -53,46 +54,48 @@ Tuple *ProjectOperator::current_tuple()
 
 void gen_project_name(const Expression *expr, bool is_single_table, std::string &result_name)
 {
-  if (expr->with_brace()) {
-    result_name += '(';
-  }
   switch (expr->type()) {
     case ExprType::FIELD: {
+      if (expr->with_brace()) {
+        result_name += '(';
+      }
       FieldExpr *fexpr = (FieldExpr *)expr;
-      const Table *table = fexpr->table();
-      const FieldMeta *field_meta = fexpr->field().meta();
+      const Field &field = fexpr->field();
       if (!is_single_table) {
-        result_name += std::string(table->name()) + '.' + std::string(field_meta->name());
+        result_name += std::string(field.table_name()) + '.' + std::string(field.field_name());
       } else {
-        result_name += std::string(field_meta->name());
+        result_name += std::string(field.field_name());
+      }
+      if (expr->with_brace()) {
+        result_name += ')';
       }
       break;
     }
+    case ExprType::BINARY:
     case ExprType::VALUE: {
-      ValueExpr *vexpr = (ValueExpr *)expr;
-      TupleCell cell;
-      vexpr->get_tuple_cell(cell);
       std::stringstream ss;
-      cell.to_string(ss);
+      expr->to_string(ss);
       result_name += ss.str();
       break;
     }
-    case ExprType::BINARY: {
-      BinaryExpression *bexpr = (BinaryExpression *)expr;
-      if (bexpr->is_minus()) {
-        result_name += '-';
-      } else {
-        gen_project_name(bexpr->get_left(), is_single_table, result_name);
-        result_name += bexpr->get_op_char();
+    case ExprType::AGGRFUNC: {
+      if (expr->with_brace()) {
+        result_name += '(';
       }
-      gen_project_name(bexpr->get_right(), is_single_table, result_name);
+      AggrFuncExpr *afexpr = (AggrFuncExpr *)expr;
+      const Field &field = afexpr->field();
+      if (!is_single_table) {
+        result_name += std::string(field.table_name()) + '.' + std::string(field.field_name());
+      } else {
+        result_name += std::string(field.field_name());
+      }
+      if (expr->with_brace()) {
+        result_name += ')';
+      }
       break;
     }
     default:
       break;
-  }
-  if (expr->with_brace()) {
-    result_name += ')';
   }
 }
 

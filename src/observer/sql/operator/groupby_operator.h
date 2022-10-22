@@ -22,9 +22,15 @@ public:
 
   void print_info();
 
+  void set_groupby_stmt(GroupByStmt *groupby_stmt)
+  {
+    groupby_stmt_ = groupby_stmt;
+  }
+
 private:
-  bool is_first = true;
-  bool is_new_group = true;
+  bool is_first_ = true;
+  bool is_new_group_ = true;
+  bool is_record_eof_ = false;
 
   // not own this
   GroupByStmt *groupby_stmt_ = nullptr;

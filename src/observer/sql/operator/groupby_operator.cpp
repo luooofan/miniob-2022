@@ -9,6 +9,9 @@ RC GroupByOperator::open()
     LOG_WARN("SortOperater child open failed!");
   }
   tuple_.set_tuple(children_[0]->current_tuple());
+  is_record_eof_ = false;
+  is_first_ = true;
+  is_new_group_ = true;
   return rc;
 }
 
@@ -17,13 +20,17 @@ void GroupByOperator::print_info()
 
 RC GroupByOperator::next()
 {
+  if (is_record_eof_) {
+    return RC::RECORD_EOF;
+  }
+
   RC rc = RC::SUCCESS;
   auto &units = groupby_stmt_->groupby_units();
 
-  if (is_first) {
+  if (is_first_) {
     rc = children_[0]->next();
-    is_first = false;
-    is_new_group = true;
+    is_first_ = false;
+    is_new_group_ = true;
     if (RC::SUCCESS != rc) {
       return rc;
     }
@@ -38,9 +45,9 @@ RC GroupByOperator::next()
 
   while (true) {
     // 0. if the last row is new group, do aggregate first
-    if (is_new_group) {
+    if (is_new_group_) {
       tuple_.do_aggregate_first();
-      is_new_group = false;
+      is_new_group_ = false;
     }
     if (RC::SUCCESS != (rc = children_[0]->next())) {
       break;
@@ -54,16 +61,22 @@ RC GroupByOperator::next()
       if (cell != pre_values_[i]) {
         // 2. update pre_values_ and set new group
         pre_values_[i] = cell;
-        is_new_group = true;
+        is_new_group_ = true;
       }
     }
     // 3. if new group, should return a row
-    if (is_new_group) {
+    if (is_new_group_) {
       tuple_.do_aggregate_done();
       return rc;
     }
     // 4. if not new group, execute aggregate function and update result
     tuple_.do_aggregate();
+  }
+
+  if (RC::RECORD_EOF == rc) {
+    is_record_eof_ = true;
+    tuple_.do_aggregate_done();
+    return RC::SUCCESS;
   }
 
   return rc;

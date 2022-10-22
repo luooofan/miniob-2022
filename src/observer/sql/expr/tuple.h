@@ -445,14 +445,12 @@ public:
   void init(const std::vector<AggrFuncExpr *> &aggr_expr)
   {
     aggr_results_.reserve(aggr_expr.size());
-    for (auto expr : aggr_expr) {
-      aggr_exprs_.emplace_back(expr);
-    }
+    aggr_exprs_ = aggr_expr;
   }
 
 private:
   int count_ = 0;
   std::vector<TupleCell> aggr_results_;
-  std::vector<AggrFuncExpr *> aggr_exprs_;
+  std::vector<AggrFuncExpr *> aggr_exprs_;  // only use these AggrFuncExpr's type and field info
   Tuple *tuple_ = nullptr;
 };

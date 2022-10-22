@@ -142,6 +142,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   }
 
   // collect query fields in `select` statement
+  // TODO(wbj) check aggrfunc fields
   std::vector<Expression *> projects;
   for (int i = select_sql.project_num - 1; i >= 0; i--) {
     const ProjectCol &project_col = select_sql.projects[i];
@@ -202,8 +203,15 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     }
   }
 
+  OrderByStmt *orderby_stmt_for_groupby = nullptr;
   GroupByStmt *groupby_stmt = nullptr;
   if (0 != select_sql.groupby_num) {
+    rc = OrderByStmt::create(
+        db, default_table, &table_map, select_sql.groupbys, select_sql.groupby_num, orderby_stmt_for_groupby);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct order by stmt for groupby");
+      return rc;
+    }
     rc = GroupByStmt::create(db, default_table, &table_map, select_sql.groupbys, select_sql.groupby_num, groupby_stmt);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct group by stmt");
@@ -217,6 +225,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   select_stmt->projects_.swap(projects);
   select_stmt->filter_stmt_ = filter_stmt;
   select_stmt->orderby_stmt_ = orderby_stmt;
+  select_stmt->orderby_stmt_for_groupby_ = orderby_stmt_for_groupby;
   select_stmt->groupby_stmt_ = groupby_stmt;
   stmt = select_stmt;
   return RC::SUCCESS;
