@@ -465,6 +465,8 @@ public:
 
   void init(const std::vector<AggrFuncExpression *> &aggr_exprs, const std::vector<FieldExpr *> &field_exprs)
   {
+    counts_.resize(aggr_exprs.size());
+    all_null_.resize(aggr_exprs.size());
     aggr_results_.resize(aggr_exprs.size());
     aggr_exprs_ = aggr_exprs;
     field_results_.resize(field_exprs.size());
@@ -473,8 +475,10 @@ public:
 
 private:
   int count_ = 0;
+  std::vector<bool> all_null_;           // for every aggr expr
+  std::vector<int> counts_;              // for every aggr expr
+  std::vector<TupleCell> aggr_results_;  // for every aggr expr
   std::vector<TupleCell> field_results_;
-  std::vector<TupleCell> aggr_results_;
 
   // not own these below
   std::vector<FieldExpr *> field_exprs_;

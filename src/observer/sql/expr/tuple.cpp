@@ -1,15 +1,23 @@
 #include "sql/expr/tuple.h"
+#include "sql/parser/parse_defs.h"
 
 void GroupTuple::do_aggregate_first()
 {
   assert(aggr_results_.size() == aggr_exprs_.size());
-  assert(field_results_.size() == field_results_.size());
+  assert(aggr_exprs_.size() == all_null_.size());
+  assert(aggr_exprs_.size() == counts_.size());
+  assert(field_results_.size() == field_exprs_.size());
   // first row in current group
-  count_ = 1;
+  for (size_t i = 0; i < all_null_.size(); ++i) {
+    all_null_[i] = true;
+    counts_[i] = 0;
+  }
   for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
     const AggrFuncExpression *expr = aggr_exprs_[i];
-    if (AggrFuncType::COUNT != expr->get_aggr_func_type()) {
-      expr->get_value(*tuple_, aggr_results_[i]);
+    expr->get_value(*tuple_, aggr_results_[i]);
+    if (!aggr_results_[i].is_null()) {
+      all_null_[i] = false;
+      counts_[i]++;
     }
   }
   for (size_t i = 0; i < field_exprs_.size(); ++i) {
@@ -19,14 +27,22 @@ void GroupTuple::do_aggregate_first()
 
 void GroupTuple::do_aggregate()
 {
-  count_++;
   TupleCell tmp;
   for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
     const AggrFuncExpression *expr = aggr_exprs_[i];
+    expr->get_value(*tuple_, tmp);
+    if (tmp.is_null()) {  // cannot do any aggregate for NULL
+      continue;
+    }
+    all_null_[i] = false;
+    counts_[i]++;
     if (AggrFuncType::COUNT == expr->get_aggr_func_type()) {
       continue;
     }
-    expr->get_value(*tuple_, tmp);
+    // NOTE: aggr_results_[i] maybe null. tmp is not null
+    if (aggr_results_[i].is_null()) {
+      aggr_results_[i] = tmp;
+    }
     switch (expr->get_aggr_func_type()) {
       case AggrFuncType::MIN:
         aggr_results_[i] = TupleCell::min(aggr_results_[i], tmp);
@@ -50,20 +66,24 @@ void GroupTuple::do_aggregate_done()
   for (size_t i = 0; i < aggr_exprs_.size(); ++i) {
     const AggrFuncExpression *expr = aggr_exprs_[i];
     TupleCell &res = aggr_results_[i];
+    // if all null, result is null
+    if (all_null_[i] && AggrFuncType::COUNT != expr->get_aggr_func_type()) {
+      aggr_results_[i].set_null();
+      continue;
+    }
     switch (expr->get_aggr_func_type()) {
       case AggrFuncType::COUNT: {
         res.set_type(AttrType::INTS);
-        res.set_data((char *)(new int(count_)));
+        res.set_data((char *)(new int(counts_[i])));
         // res.modify_data((char *)&count_);
         break;
       }
       case AggrFuncType::AVG: {
-        res = TupleCell::div(res, TupleCell(AttrType::INTS, (char *)&count_));  // malloc memory in div
+        res = TupleCell::div(res, TupleCell(AttrType::INTS, (char *)&counts_[i]));  // malloc memory in div
         break;
       }
       default:
         break;
     }
   }
-  count_ = 0;  // reset for next group
 }

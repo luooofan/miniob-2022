@@ -129,11 +129,17 @@ public:
 
   static const TupleCell &min(const TupleCell &a, const TupleCell &b)
   {
+    if (a.is_null()) {
+      return b;  // even if b is also null
+    }
     return a <= b ? a : b;
   }
 
   static const TupleCell &max(const TupleCell &a, const TupleCell &b)
   {
+    if (a.is_null()) {
+      return b;  // even if b is also null
+    }
     return a >= b ? a : b;
   }
 
