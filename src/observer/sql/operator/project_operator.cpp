@@ -54,11 +54,11 @@ Tuple *ProjectOperator::current_tuple()
 
 void gen_project_name(const Expression *expr, bool is_single_table, std::string &result_name)
 {
+  if (expr->with_brace()) {
+    result_name += '(';
+  }
   switch (expr->type()) {
     case ExprType::FIELD: {
-      if (expr->with_brace()) {
-        result_name += '(';
-      }
       FieldExpr *fexpr = (FieldExpr *)expr;
       const Field &field = fexpr->field();
       if (!is_single_table) {
@@ -66,22 +66,29 @@ void gen_project_name(const Expression *expr, bool is_single_table, std::string 
       } else {
         result_name += std::string(field.field_name());
       }
-      if (expr->with_brace()) {
-        result_name += ')';
-      }
       break;
     }
-    case ExprType::BINARY:
     case ExprType::VALUE: {
+      ValueExpr *vexpr = (ValueExpr *)expr;
+      TupleCell cell;
+      vexpr->get_tuple_cell(cell);
       std::stringstream ss;
-      expr->to_string(ss);
+      cell.to_string(ss);
       result_name += ss.str();
       break;
     }
-    case ExprType::AGGRFUNCTION: {
-      if (expr->with_brace()) {
-        result_name += '(';
+    case ExprType::BINARY: {
+      BinaryExpression *bexpr = (BinaryExpression *)expr;
+      if (bexpr->is_minus()) {
+        result_name += '-';
+      } else {
+        gen_project_name(bexpr->get_left(), is_single_table, result_name);
+        result_name += bexpr->get_op_char();
       }
+      gen_project_name(bexpr->get_right(), is_single_table, result_name);
+      break;
+    }
+    case ExprType::AGGRFUNCTION: {
       AggrFuncExpression *afexpr = (AggrFuncExpression *)expr;
       result_name += afexpr->get_func_name();
       result_name += '(';
@@ -97,13 +104,13 @@ void gen_project_name(const Expression *expr, bool is_single_table, std::string 
         }
       }
       result_name += ')';
-      if (expr->with_brace()) {
-        result_name += ')';
-      }
       break;
     }
     default:
       break;
+  }
+  if (expr->with_brace()) {
+    result_name += ')';
   }
 }
 
