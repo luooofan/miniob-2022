@@ -141,6 +141,9 @@ ParserContext *get_context(yyscan_t scanner)
         LE
         GE
         NE
+        LENGTH
+        ROUND
+        DATE_FORMAT
 
 %union {
   struct _Attr *attr;
@@ -150,6 +153,7 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Expr* exp1;
   struct _Expr* exp2;
   struct _Expr* exp3;
+  struct _Expr* exp4;
   char *string;
   int number;
   float floats;
@@ -173,6 +177,7 @@ ParserContext *get_context(yyscan_t scanner)
 %type <exp1> unary_expr;
 %type <exp2> mul_expr;
 %type <exp3> add_expr;
+%type <exp4> func_expr;
 
 %%
 
@@ -475,6 +480,50 @@ unary_expr:
     | LBRACE add_expr RBRACE {
       expr_set_with_brace($2);
       $$ = $2;
+    }
+    | func_expr {
+      $$ = $1;
+    }
+    ;
+func_expr:
+    LENGTH LBRACE add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 0);
+      func_expr_init_params(fexpr, $3, NULL);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    ROUND LBRACE add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 1);
+      func_expr_init_params(fexpr, $3, NULL);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    ROUND LBRACE add_expr COMMA add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 1);
+      func_expr_init_params(fexpr, $3, $5);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    DATE_FORMAT LBRACE add_expr COMMA add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 2);
+      func_expr_init_params(fexpr, $3, $5);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
     }
     ;
 

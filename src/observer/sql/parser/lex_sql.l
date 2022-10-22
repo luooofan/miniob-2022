@@ -87,6 +87,9 @@ DOUBLE_QUOTE     \"
 [Ss][Uu][Mm]                                         RETURN_TOKEN(AGGR_SUM);
 [Aa][Vv][Gg]                                         RETURN_TOKEN(AGGR_AVG);
 [Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(AGGR_COUNT);
+[Ll][Ee][Nn][Gg][Tt][Hh]                             RETURN_TOKEN(LENGTH);
+[Rr][Oo][Uu][Nn][Dd]                                 RETURN_TOKEN(ROUND);
+[Dd][Aa][Tt][Ee][_][Ff][Oo][Rr][Mm][Aa][Tt]          RETURN_TOKEN(DATE_FORMAT);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);

@@ -43,8 +43,9 @@ typedef enum {
 } CompOp;
 
 typedef enum { NO_EXP_OP, ADD_OP, SUB_OP, MUL_OP, DIV_OP, EXP_OP_NUM } ExpOp;
-typedef enum { UNARY, BINARY } ExpType;
 typedef enum { NO_AGGR, MAX, MIN, SUM, AVG, COUNT, AGGR_NUM } AggrFuncType;
+typedef enum { UNARY, BINARY, FUNC } ExpType;
+typedef enum { FUNC_LENGTH, FUNC_ROUND, FUNC_DATE_FORMAT } FuncType;
 
 // 属性值类型
 typedef enum { UNDEFINED, CHARS, INTS, DATES, FLOATS } AttrType;
@@ -62,12 +63,20 @@ typedef struct _UnaryExpr {
 } UnaryExpr;
 
 typedef struct _BinaryExpr BinaryExpr;
+typedef struct _FuncExpr FuncExpr;
 typedef struct _Expr {
   int type;  // 0 1 2(func)
   UnaryExpr *uexp;
   BinaryExpr *bexp;
+  FuncExpr *fexp;
   int with_brace;
 } Expr;
+
+typedef struct _FuncExpr {
+  FuncType type;
+  Expr *params[MAX_NUM];
+  int param_size;
+} FuncExpr;
 
 typedef struct _BinaryExpr {
   ExpOp op;
@@ -229,6 +238,10 @@ extern "C" {
 void attr_print(RelAttr *attr, int indent);
 void value_print(Value *value, int indent);
 
+void func_expr_init_type(FuncExpr *func_expr, FuncType type);
+void func_expr_init_params(FuncExpr *func_expr, Expr *expr1, Expr *expr2);
+void func_expr_destory(FuncExpr *expr);
+
 void unary_expr_print(UnaryExpr *expr, int indent);
 void unary_expr_init_attr(UnaryExpr *expr, RelAttr *relation_attr);
 void unary_expr_init_value(UnaryExpr *expr, Value *value);
@@ -240,6 +253,7 @@ void binary_expr_set_minus(BinaryExpr *expr);
 void binary_expr_destroy(BinaryExpr *expr);
 
 void expr_print(Expr *expr, int indent);
+void expr_init_func(Expr *expr, FuncExpr *f_expr);
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
 void expr_set_with_brace(Expr *expr);

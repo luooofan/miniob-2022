@@ -89,6 +89,26 @@ void projectcol_destroy(ProjectCol *projectcol)
   projectcol->relation_name = nullptr;
 }
 
+void func_expr_init_type(FuncExpr *func_expr, FuncType type)
+{
+  func_expr->type = type;
+}
+
+void func_expr_init_params(FuncExpr *func_expr, Expr *expr1, Expr *expr2)
+{
+  if (expr1 != nullptr) {
+    func_expr->params[func_expr->param_size++] = expr1;
+  }
+  if (expr2 != nullptr) {
+    func_expr->params[func_expr->param_size++] = expr2;
+  }
+}
+
+void func_expr_destory(FuncExpr *expr)
+{
+  return;
+}
+
 void unary_expr_init_value(UnaryExpr *expr, Value *value)
 {
   expr->is_attr = 0;
@@ -159,11 +179,20 @@ void expr_print(Expr *expr, int indent)
     binary_expr_print(expr->bexp, indent);
   }
 }
+void expr_init_func(Expr *expr, FuncExpr *f_expr)
+{
+  expr->type = 2;
+  expr->fexp = f_expr;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->with_brace = 0;
+}
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
 {
   expr->type = 0;
   expr->uexp = u_expr;
   expr->bexp = NULL;
+  expr->fexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
@@ -171,6 +200,7 @@ void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
   expr->type = 1;
   expr->bexp = b_expr;
   expr->uexp = NULL;
+  expr->fexp = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
@@ -179,10 +209,12 @@ void expr_set_with_brace(Expr *expr)
 }
 void expr_destroy(Expr *expr)
 {
-  if (expr->type) {
+  if (expr->type == 1) {
     binary_expr_destroy(expr->bexp);
-  } else {
+  } else if (expr->type == 0) {
     unary_expr_destroy(expr->uexp);
+  } else if (expr->type == 2) {
+    func_expr_destory(expr->fexp);
   }
 }
 

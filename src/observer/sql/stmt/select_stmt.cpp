@@ -95,7 +95,6 @@ RC gen_project_expression(Expr *expr, const std::unordered_map<std::string, Tabl
       res_expr = new ValueExpr(uexpr->value, with_brace);
       return RC::SUCCESS;
     }
-
   } else if (expr->type == BINARY) {
     Expression *left_expr;
     Expression *right_expr;
@@ -109,9 +108,47 @@ RC gen_project_expression(Expr *expr, const std::unordered_map<std::string, Tabl
     }
     res_expr = new BinaryExpression(expr->bexp->op, left_expr, right_expr, with_brace, expr->bexp->minus);
     return RC::SUCCESS;
+  } else if (expr->type == FUNC) {
+    Expression *param_expr1;
+    Expression *param_expr2;
+    switch (expr->fexp->type) {
+      case FUNC_LENGTH: {
+        RC rc = gen_project_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        break;
+      }
+      case FUNC_ROUND: {
+        RC rc = gen_project_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        if (expr->fexp->param_size == 2) {
+          rc = gen_project_expression(expr->fexp->params[1], table_map, tables, param_expr2);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        break;
+      }
+      case FUNC_DATE_FORMAT: {
+        RC rc = gen_project_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        rc = gen_project_expression(expr->fexp->params[1], table_map, tables, param_expr2);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, with_brace);
+        break;
+      }
+    }
   }
   return RC::SUCCESS;
-  // TO DO FUNC
 }
 
 RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
