@@ -102,5 +102,7 @@ private:
   std::vector<FilterUnit *> filter_units_;  // 默认当前都是AND关系
 };
 
+typedef FilterStmt HavingStmt;
+
 RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     const RelAttr &attr, Table *&table, const FieldMeta *&field);

@@ -196,10 +196,15 @@ void condition_destroy(Condition *condition)
 
 void expr_print(Expr *expr, int indent)
 {
-  if (expr->type == 0) {
-    unary_expr_print(expr->uexp, indent);
-  } else {
-    binary_expr_print(expr->bexp, indent);
+  switch (expr->type) {
+    case ExpType::UNARY:
+      unary_expr_print(expr->uexp, indent);
+      break;
+    case ExpType::BINARY:
+      binary_expr_print(expr->bexp, indent);
+      break;
+    default:
+      break;
   }
 }
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
@@ -394,6 +399,16 @@ void selects_append_groupbys(Selects *selects, GroupBy groupbys[], size_t groupb
   selects->groupby_num = groupby_num;
 }
 
+void selects_append_havings(Selects *selects, Condition conditions[], size_t condition_num)
+{
+  assert(condition_num <= sizeof(selects->havings) / sizeof(selects->havings[0]));
+  for (size_t i = 0; i < condition_num; i++) {
+    selects->havings[i] = conditions[i];
+  }
+
+  selects->having_num = condition_num;
+}
+
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num)
 {
   assert(orderby_num <= sizeof(selects->orderbys) / sizeof(selects->orderbys[0]));
@@ -430,6 +445,16 @@ void selects_destroy(Selects *selects)
     orderby_destroy(&selects->orderbys[i]);
   }
   selects->orderby_num = 0;
+
+  for (size_t i = 0; i < selects->groupby_num; i++) {
+    relation_attr_destroy(&selects->groupbys[i]);
+  }
+  selects->groupby_num = 0;
+
+  for (size_t i = 0; i < selects->having_num; i++) {
+    condition_destroy(&selects->havings[i]);
+  }
+  selects->having_num = 0;
 }
 
 void inserts_init(Inserts *inserts, const char *relation_name)

@@ -17,6 +17,7 @@ typedef struct ParserContext {
   Query * ssql;
   size_t select_length;
   size_t condition_length;
+  size_t having_length;
   size_t orderby_length;
   size_t groupby_length;
   size_t aggrfunc_length;
@@ -24,6 +25,7 @@ typedef struct ParserContext {
   size_t value_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
+  Condition havings[MAX_NUM];
   OrderBy orderbys[MAX_NUM];
   GroupBy groupbys[MAX_NUM];
   CompOp comp;
@@ -63,6 +65,9 @@ void yyerror(yyscan_t scanner, const char *str)
   context->from_length = 0;
   context->select_length = 0;
   context->value_length = 0;
+  context->having_length = 0;
+  context->groupby_length = 0;
+  context->aggrfunc_length = 0;
   context->ssql->sstr.insertion.value_num = 0;
   printf("parse sql failed. error=%s", str);
 }
@@ -110,6 +115,7 @@ ParserContext *get_context(yyscan_t scanner)
         ORDER
         GROUP
         BY
+        HAVING
         AGGR_MAX
         AGGR_MIN
         AGGR_SUM
@@ -148,6 +154,7 @@ ParserContext *get_context(yyscan_t scanner)
 %union {
   struct _Attr *attr;
   struct _Condition *condition1;
+  struct _Condition *having1;
   struct _Value *value1;
   struct _UnaryExpr* uexp1;
   struct _Expr* exp1;
@@ -173,6 +180,7 @@ ParserContext *get_context(yyscan_t scanner)
 
 %type <number> type;
 %type <condition1> condition;
+%type <having1> having;
 %type <value1> value;
 %type <number> number;
 %type <exp1> unary_expr;
@@ -448,8 +456,15 @@ condition:
     add_expr comOp add_expr{
       Condition expr;
       condition_init(&expr, CONTEXT->comp, $1, $3);
-      condition_print(&expr, 0);
       CONTEXT->conditions[CONTEXT->condition_length++] = expr;
+    }
+    ;
+
+having_condition:
+    add_expr comOp add_expr{
+      Condition expr;
+      condition_init(&expr, CONTEXT->comp, $1, $3);
+      CONTEXT->havings[CONTEXT->having_length++] = expr;
     }
     ;
 
@@ -631,7 +646,7 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where opt_order_by opt_group_by SEMICOLON
+    SELECT select_attr FROM ID rel_list where opt_order_by opt_group_by having SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
@@ -642,10 +657,13 @@ select:				/*  select 语句的语法解析树*/
 
 			selects_append_groupbys(&CONTEXT->ssql->sstr.selection, CONTEXT->groupbys, CONTEXT->groupby_length);
 
+			selects_append_havings(&CONTEXT->ssql->sstr.selection, CONTEXT->havings, CONTEXT->having_length);
+
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
+      CONTEXT->having_length=0;
 			CONTEXT->groupby_length=0;
 			CONTEXT->orderby_length=0;
 			CONTEXT->condition_length=0;
@@ -723,6 +741,19 @@ condition_list:
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
 			}
     ;
+having:
+    /* empty */  { 
+      // do notion
+    }
+    | HAVING having_condition having_condition_list {	
+    }
+    ;
+having_condition_list:
+    /* empty */
+    | AND having_condition having_condition_list {
+    }
+    ;
+
 
 comOp:
   	  EQ { CONTEXT->comp = EQUAL_TO; }

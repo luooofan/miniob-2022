@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <cassert>
 #include <ostream>
 #include <string.h>
+#include <unordered_map>
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/common/field.h"
@@ -40,6 +41,9 @@ public:
   virtual RC get_value(const Tuple &tuple, TupleCell &cell) const = 0;
   virtual ExprType type() const = 0;
   virtual void to_string(std::ostream &os) const = 0;
+
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr);
 
   void set_with_brace()
   {

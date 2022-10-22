@@ -13,7 +13,9 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/expr/expression.h"
+#include "common/lang/string.h"
 #include "sql/expr/tuple.h"
+#include <unordered_map>
 
 void FieldExpr::to_string(std::ostream &os) const
 {
@@ -239,4 +241,133 @@ void AggrFuncExpression::get_aggrfuncexprs(const Expression *expr, std::vector<A
       break;
   }
   return;
+}
+
+RC Expression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+    const std::vector<Table *> &tables, Expression *&res_expr)
+{
+  bool with_brace = expr->with_brace;
+  if (expr->type == UNARY) {
+    UnaryExpr *uexpr = expr->uexp;
+    if (uexpr->is_attr) {
+      const char *table_name = uexpr->attr.relation_name;
+      const char *field_name = uexpr->attr.attribute_name;
+      if (common::is_blank(table_name)) {
+        if (tables.size() != 1) {
+          LOG_WARN("invalid. I do not know the attr's table. attr=%s", field_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        Table *table = tables[0];
+        const FieldMeta *field_meta = table->table_meta().field(field_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("no such field. field=%s.%s", table->name(), field_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        res_expr = new FieldExpr(table, field_meta, with_brace);
+        return RC::SUCCESS;
+      } else {
+        auto iter = table_map.find(table_name);
+        if (iter == table_map.end()) {
+          LOG_WARN("no such table in from list: %s", table_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+
+        Table *table = iter->second;
+        const FieldMeta *field_meta = table->table_meta().field(field_name);
+        if (nullptr == field_meta) {
+          LOG_WARN("no such field. field=%s.%s", table->name(), field_name);
+          return RC::SCHEMA_FIELD_MISSING;
+        }
+        res_expr = new FieldExpr(table, field_meta, with_brace);
+        return RC::SUCCESS;
+      }
+    } else {
+      res_expr = new ValueExpr(uexpr->value, with_brace);
+      return RC::SUCCESS;
+    }
+  } else if (expr->type == BINARY) {
+    Expression *left_expr;
+    Expression *right_expr;
+    RC rc = create_expression(expr->bexp->left, table_map, tables, left_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    rc = create_expression(expr->bexp->right, table_map, tables, right_expr);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    res_expr = new BinaryExpression(expr->bexp->op, left_expr, right_expr, with_brace, expr->bexp->minus);
+    return RC::SUCCESS;
+  } else if (expr->type == FUNC) {
+    Expression *param_expr1;
+    Expression *param_expr2;
+    switch (expr->fexp->type) {
+      case FUNC_LENGTH: {
+        RC rc = create_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
+        break;
+      }
+      case FUNC_ROUND: {
+        RC rc = create_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        if (expr->fexp->param_size == 2) {
+          rc = create_expression(expr->fexp->params[1], table_map, tables, param_expr2);
+          if (rc != RC::SUCCESS) {
+            return rc;
+          }
+        }
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
+        break;
+      }
+      case FUNC_DATE_FORMAT: {
+        RC rc = create_expression(expr->fexp->params[0], table_map, tables, param_expr1);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        rc = create_expression(expr->fexp->params[1], table_map, tables, param_expr2);
+        if (rc != RC::SUCCESS) {
+          return rc;
+        }
+        // res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2,
+        // with_brace);
+        break;
+      }
+      default:
+        break;
+    }
+  } else if (AGGRFUNC == expr->type) {
+    // TODO(wbj)
+    if (UNARY == expr->afexp->param->type && 0 == expr->afexp->param->uexp->is_attr) {
+      // count(*) count(1) count(Value)
+      assert(AggrFuncType::COUNT == expr->afexp->type);
+      // substitue * or 1 with some field
+      Expression *tmp_value_exp = nullptr;
+      RC rc = create_expression(expr->afexp->param, table_map, tables, tmp_value_exp);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
+      assert(ExprType::VALUE == tmp_value_exp->type());
+      auto aggr_func_expr = new AggrFuncExpression(
+          AggrFuncType::COUNT, new FieldExpr(tables[0], tables[0]->table_meta().field(1)), with_brace);
+      aggr_func_expr->set_param_value((ValueExpr *)tmp_value_exp);
+      res_expr = aggr_func_expr;
+      return RC::SUCCESS;
+    }
+    Expression *param = nullptr;
+    RC rc = create_expression(expr->afexp->param, table_map, tables, param);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
+    assert(nullptr != param && ExprType::FIELD == param->type());
+    res_expr = new AggrFuncExpression(expr->afexp->type, (FieldExpr *)param, with_brace);
+    return RC::SUCCESS;
+  }
+  return RC::SUCCESS;
 }

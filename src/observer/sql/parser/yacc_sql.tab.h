@@ -77,58 +77,60 @@ enum yytokentype {
   ORDER = 284,
   GROUP = 285,
   BY = 286,
-  AGGR_MAX = 287,
-  AGGR_MIN = 288,
-  AGGR_SUM = 289,
-  AGGR_AVG = 290,
-  AGGR_COUNT = 291,
-  HELP = 292,
-  EXIT = 293,
-  DOT = 294,
-  INTO = 295,
-  VALUES = 296,
-  FROM = 297,
-  WHERE = 298,
-  AND = 299,
-  SET = 300,
-  ON = 301,
-  LOAD = 302,
-  DATA = 303,
-  INFILE = 304,
-  NOT = 305,
-  LIKE = 306,
-  UNIQUE = 307,
-  ADD = 308,
-  SUB = 309,
-  MUL = 310,
-  DIV = 311,
-  EQ = 312,
-  LT = 313,
-  GT = 314,
-  LE = 315,
-  GE = 316,
-  NE = 317,
-  LENGTH = 318,
-  ROUND = 319,
-  DATE_FORMAT = 320,
-  NUMBER = 321,
-  FLOAT = 322,
-  ID = 323,
-  PATH = 324,
-  SSS = 325,
-  STAR = 326,
-  STRING_V = 327,
-  DATE_STR = 328
+  HAVING = 287,
+  AGGR_MAX = 288,
+  AGGR_MIN = 289,
+  AGGR_SUM = 290,
+  AGGR_AVG = 291,
+  AGGR_COUNT = 292,
+  HELP = 293,
+  EXIT = 294,
+  DOT = 295,
+  INTO = 296,
+  VALUES = 297,
+  FROM = 298,
+  WHERE = 299,
+  AND = 300,
+  SET = 301,
+  ON = 302,
+  LOAD = 303,
+  DATA = 304,
+  INFILE = 305,
+  NOT = 306,
+  LIKE = 307,
+  UNIQUE = 308,
+  ADD = 309,
+  SUB = 310,
+  MUL = 311,
+  DIV = 312,
+  EQ = 313,
+  LT = 314,
+  GT = 315,
+  LE = 316,
+  GE = 317,
+  NE = 318,
+  LENGTH = 319,
+  ROUND = 320,
+  DATE_FORMAT = 321,
+  NUMBER = 322,
+  FLOAT = 323,
+  ID = 324,
+  PATH = 325,
+  SSS = 326,
+  STAR = 327,
+  STRING_V = 328,
+  DATE_STR = 329
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 148 "yacc_sql.y"
+#line 154 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
+  struct _Condition *having1;
   struct _Value *value1;
   struct _UnaryExpr *uexp1;
   struct _Expr *exp1;
@@ -141,7 +143,7 @@ union YYSTYPE {
   float floats;
   char *position;
 
-#line 147 "yacc_sql.tab.h"
+#line 149 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1
