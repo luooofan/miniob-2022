@@ -571,6 +571,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   // 2.4 do check (we should do this check earlier actually)
   if (!aggr_exprs.empty() && !field_exprs.empty()) {
     if (nullptr == groupby_stmt) {
+      session_event->set_response("FAILURE\n");
       return RC::SQL_SYNTAX;
     }
     for (auto field_expr : field_exprs) {
@@ -582,6 +583,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
         }
       }
       if (!in_groupby) {
+        session_event->set_response("FAILURE\n");
         return RC::SQL_SYNTAX;
       }
     }
@@ -624,6 +626,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
+    session_event->set_response("FAILURE\n");
     return rc;
   }
 
@@ -645,6 +648,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+    session_event->set_response("FAILURE\n");
     project_oper.close();
   } else {
     rc = project_oper.close();
