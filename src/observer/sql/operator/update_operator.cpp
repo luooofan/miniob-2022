@@ -124,10 +124,10 @@ RC UpdateOperator::open()
 
   // free memory
   for (size_t i = 0; i < old_records.size(); i++) {
-    delete old_records[i].data();
+    delete[] old_records[i].data();
   }
   for (size_t i = 0; i < updated_records.size(); i++) {
-    delete updated_records[i].data();
+    delete[] updated_records[i].data();
   }
 
   if (RC::RECORD_EOF != rc) {

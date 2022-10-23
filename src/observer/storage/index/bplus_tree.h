@@ -512,10 +512,10 @@ protected:
   RC adjust_root(Frame *root_frame);
 
 private:
-  char *make_key(const char *user_key, const RID &rid)
-  {
-    return make_key(user_key, rid, false);
-  }
+  // char *make_key(const char *user_key, const RID &rid)
+  // {
+  //   return make_key(user_key, rid, false);
+  // }
   char *make_key(const char *user_key, const RID &rid, bool unique);
 
   void free_key(char *key);

@@ -1403,6 +1403,7 @@ char *BplusTreeHandler::make_key(const char *user_key, const RID &rid, bool uniq
   }
   if (unique) {
     memset(key + pos, 0, sizeof(rid.page_num));
+    pos += sizeof(rid.page_num);
     memset(key + pos, 1, sizeof(rid.slot_num));
   } else {
     memcpy(key + pos, &rid, sizeof(rid));
@@ -1812,11 +1813,11 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
       }
     }
 
-    // bool unique = tree_handler_.file_header_.unique;
+    bool unique = tree_handler_.file_header_.unique;
     if (left_inclusive) {
-      left_key = tree_handler_.make_key(fixed_left_key, *RID::min() /* , unique */);
+      left_key = tree_handler_.make_key(fixed_left_key, *RID::min(), unique);
     } else {
-      left_key = tree_handler_.make_key(fixed_left_key, *RID::max() /* , unique */);
+      left_key = tree_handler_.make_key(fixed_left_key, *RID::max(), unique);
     }
 
     if (fixed_left_key != left_user_key) {
@@ -1878,11 +1879,11 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
         right_inclusive = true;
       }
     }
-    // bool unique = tree_handler_.file_header_.unique;
+    bool unique = tree_handler_.file_header_.unique;
     if (right_inclusive) {
-      right_key = tree_handler_.make_key(fixed_right_key, *RID::max() /* , unique */);
+      right_key = tree_handler_.make_key(fixed_right_key, *RID::max(), unique);
     } else {
-      right_key = tree_handler_.make_key(fixed_right_key, *RID::min() /* , unique */);
+      right_key = tree_handler_.make_key(fixed_right_key, *RID::min(), unique);
     }
 
     if (fixed_right_key != right_user_key) {
