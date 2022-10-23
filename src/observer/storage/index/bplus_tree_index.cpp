@@ -35,13 +35,14 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, st
   std::vector<int> field_length;
   std::vector<int> field_offset;
   std::vector<AttrType> field_type;
+  bool unique = index_meta.is_unique();
   for (size_t i = 0; i < field_meta.size(); i++) {
     field_length.push_back(field_meta[i].len());
     field_offset.push_back(field_meta[i].offset());
     field_type.push_back(field_meta[i].type());
   }
 
-  RC rc = index_handler_.create(file_name, field_type, field_length, field_offset);
+  RC rc = index_handler_.create(file_name, unique, field_type, field_length, field_offset);
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
         file_name,

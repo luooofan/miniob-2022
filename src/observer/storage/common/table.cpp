@@ -800,10 +800,11 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
     trx->init_trx_info(this, *record);
   }
 
-  char *old_data = record->data();
   int record_size = table_meta_.record_size();
-  char *data = new char[record_size];   // new_record->data
-  memcpy(data, old_data, record_size);  // new_record->data
+  char *old_data = new char[record_size];         // old_record->data
+  memcpy(old_data, record->data(), record_size);  // old_record->data
+  char *data = new char[record_size];             // new_record->data
+  memcpy(data, record->data(), record_size);      // new_record->data
 
   for (size_t idx = 0; idx < attr_names.size(); idx++) {
     int field_offset = -1;
@@ -832,6 +833,10 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
       field_length = field_meta->len();
       break;
     }
+    if (field_offset == -1 || field_length == -1) {
+      LOG_ERROR("failed to get filed offset or length");
+      return RC::SCHEMA_FIELD_NOT_EXIST;
+    }
     memcpy(data + field_offset, values[idx].data, field_length);
   }
 
@@ -842,7 +847,7 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
   record->set_data(data);
 
   // delete index for old_record
-  rc = delete_entry_of_indexes(old_data, record->rid(), false);
+  rc = delete_entry_of_indexes(old_data, record->rid(), true);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
         record->rid().page_num,
@@ -863,12 +868,36 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
   // add index for new_record
   rc = insert_entry_of_indexes(record->data(), record->rid());
   if (rc != RC::SUCCESS) {
-    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
-    if (rc2 != RC::SUCCESS) {
+    LOG_WARN("Failed to update index, rc=%d:%s", rc, strrc(rc));
+    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), false);
+    if (rc2 != RC::SUCCESS && rc2 != RC::RECORD_RECORD_NOT_EXIST) {
       LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
           name(),
           rc2,
           strrc(rc2));
+      return rc2;
+    }
+
+    // rollback record data
+    record->set_data(old_data);
+    rc2 = record_handler_->update_record(record);
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to update record (rid=%d.%d). rc=%d:%s",
+          record->rid().page_num,
+          record->rid().slot_num,
+          rc2,
+          strrc(rc2));
+      return rc2;
+    }
+
+    rc2 = insert_entry_of_indexes(record->data(), record->rid());
+    if (rc2 != RC::SUCCESS) {
+      LOG_ERROR("Failed to rollback indexes of record (rid=%d.%d). rc=%d:%s",
+          record->rid().page_num,
+          record->rid().slot_num,
+          rc2,
+          strrc(rc2));
+      return rc2;
     }
     return rc;
   }
@@ -878,7 +907,31 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
     trx->update_record(this, record);
 
     // TO DO CLOG
+    CLogRecord *clog_record = nullptr;
+    rc = clog_manager_->clog_gen_record(
+        CLogType::REDO_UPDATE, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), record);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+      return rc;
+    }
+    rc = clog_manager_->clog_append_record(clog_record);
+    if (rc != RC::SUCCESS) {
+      return rc;
+    }
   }
+  return rc;
+}
+
+RC Table::recover_update_record(Record *record)
+{
+  RC rc = RC::SUCCESS;
+
+  rc = record_handler_->recover_update_record(record->data(), table_meta_.record_size(), &record->rid());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Update record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+    return rc;
+  }
+
   return rc;
 }
 
@@ -1014,6 +1067,7 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
   for (Index *index : indexes_) {
     rc = index->insert_entry(record, &rid);
     if (rc != RC::SUCCESS) {
+      LOG_WARN("insert into index [%s] failed, rc=%d:%s", index->index_meta().name(), rc, strrc(rc));
       break;
     }
   }
@@ -1026,7 +1080,9 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
   for (Index *index : indexes_) {
     rc = index->delete_entry(record, &rid);
     if (rc != RC::SUCCESS) {
-      if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists) {
+      LOG_WARN("delete from index [%s] failed, rc=%d:%s", index->index_meta().name(), rc, strrc(rc));
+      // if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists)
+      if (rc != RC::RECORD_RECORD_NOT_EXIST || !error_on_not_exists) {
         break;
       }
     }

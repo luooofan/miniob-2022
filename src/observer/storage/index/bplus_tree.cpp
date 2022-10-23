@@ -749,8 +749,9 @@ RC BplusTreeHandler::sync()
   return disk_buffer_pool_->flush_all_pages();
 }
 
-RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
-    std::vector<int> attr_offset, int internal_max_size /* = -1*/, int leaf_max_size /* = -1 */)
+RC BplusTreeHandler::create(const char *file_name, bool unique, std::vector<AttrType> attr_type,
+    std::vector<int> attr_length, std::vector<int> attr_offset, int internal_max_size /* = -1*/,
+    int leaf_max_size /* = -1 */)
 {
   BufferPoolManager &bpm = BufferPoolManager::instance();
   RC rc = bpm.create_file(file_name);
@@ -803,8 +804,9 @@ RC BplusTreeHandler::create(const char *file_name, std::vector<AttrType> attr_ty
     file_header->attr_offset[i] = attr_offset[i];
     file_header->attr_type[i] = attr_type[i];
   }
+  file_header->unique = unique;
   file_header->attr_num = attr_length.size();
-  file_header->key_length = length_sum + sizeof(RID);
+  file_header->key_length = length_sum + sizeof(RID);  // TO DO NULL BITMAP
   file_header->internal_max_size = internal_max_size;
   file_header->leaf_max_size = leaf_max_size;
   file_header->root_page = BP_INVALID_PAGE_NUM;
@@ -1426,7 +1428,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool uni
     return RC::NOMEM;
   }
   int pos = 0;
-  for (size_t i = 0; i < file_header_.attr_num; i++) {
+  for (int i = 0; i < file_header_.attr_num; i++) {
     memcpy(fixed_user_key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }
@@ -1454,7 +1456,7 @@ RC BplusTreeHandler::insert_entry(const char *user_key, const RID *rid, bool uni
 
   rc = insert_entry_into_leaf_node(frame, key, rid);
   if (rc != RC::SUCCESS) {
-    LOG_TRACE("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
+    LOG_WARN("Failed to insert into leaf of index, rid:%s", rid->to_string().c_str());
     disk_buffer_pool_->unpin_page(frame);
     mem_pool_item_->free(key);
     // disk_buffer_pool_->check_all_pages_unpinned(file_id_);
@@ -1712,20 +1714,27 @@ RC BplusTreeHandler::delete_entry_internal(Frame *leaf_frame, const char *key)
 
 RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid, bool unique)
 {
-  char *key = (char *)mem_pool_item_->alloc();
-  if (nullptr == key) {
+  if (user_key == nullptr || rid == nullptr) {
+    LOG_WARN("Invalid arguments, key is empty or rid is empty");
+    return RC::INVALID_ARGUMENT;
+  }
+
+  char *fixed_user_key = (char *)mem_pool_item_->alloc();
+  if (nullptr == fixed_user_key) {
     LOG_WARN("Failed to alloc memory for key. size=%d", file_header_.key_length);
     return RC::NOMEM;
   }
   int pos = 0;
   for (int i = 0; i < file_header_.attr_num; i++) {
-    memcpy(key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
+    memcpy(fixed_user_key + pos, user_key + file_header_.attr_offset[i], file_header_.attr_length[i]);
     pos += file_header_.attr_length[i];
   }
-  if (unique) {
-    memset(key + pos, 0, sizeof(*rid));
-  } else {
-    memcpy(key + pos, rid, sizeof(*rid));
+
+  char *key = make_key(fixed_user_key, *rid, unique);
+  if (key == nullptr) {
+    LOG_WARN("Failed to alloc memory for key.");
+    mem_pool_item_->free(fixed_user_key);
+    return RC::NOMEM;
   }
 
   Frame *leaf_frame;
@@ -1733,15 +1742,18 @@ RC BplusTreeHandler::delete_entry(const char *user_key, const RID *rid, bool uni
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to find leaf page. rc =%d:%s", rc, strrc(rc));
     mem_pool_item_->free(key);
+    mem_pool_item_->free(fixed_user_key);
     return rc;
   }
   rc = delete_entry_internal(leaf_frame, key);
   if (rc != RC::SUCCESS) {
     LOG_WARN("Failed to delete index");
     mem_pool_item_->free(key);
+    mem_pool_item_->free(fixed_user_key);
     return rc;
   }
   mem_pool_item_->free(key);
+  mem_pool_item_->free(fixed_user_key);
   return RC::SUCCESS;
 }
 
@@ -1800,10 +1812,11 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
       }
     }
 
+    bool unique = tree_handler_.file_header_.unique;
     if (left_inclusive) {
-      left_key = tree_handler_.make_key(fixed_left_key, *RID::min());
+      left_key = tree_handler_.make_key(fixed_left_key, *RID::min(), unique);
     } else {
-      left_key = tree_handler_.make_key(fixed_left_key, *RID::max());
+      left_key = tree_handler_.make_key(fixed_left_key, *RID::max(), unique);
     }
 
     if (fixed_left_key != left_user_key) {
@@ -1865,10 +1878,11 @@ RC BplusTreeScanner::open(const char *left_user_key, int left_len, bool left_inc
         right_inclusive = true;
       }
     }
+    bool unique = tree_handler_.file_header_.unique;
     if (right_inclusive) {
-      right_key = tree_handler_.make_key(fixed_right_key, *RID::max());
+      right_key = tree_handler_.make_key(fixed_right_key, *RID::max(), unique);
     } else {
-      right_key = tree_handler_.make_key(fixed_right_key, *RID::min());
+      right_key = tree_handler_.make_key(fixed_right_key, *RID::min(), unique);
     }
 
     if (fixed_right_key != right_user_key) {

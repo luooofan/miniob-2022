@@ -64,6 +64,7 @@ public:
   RC insert_record(const char *data, RID *rid);
   RC recover_insert_record(const char *data, RID *rid);
   RC update_record(const Record *rec);
+  RC recover_update_record(const char *data, RID *rid);
 
   template <class RecordUpdater>
   RC update_record_in_place(const RID *rid, RecordUpdater updater)
@@ -113,6 +114,7 @@ public:
    * pData字段指向新的记录内容
    */
   RC update_record(const Record *rec);
+  RC recover_update_record(const char *data, int record_size, RID *rid);
 
   /**
    * 从指定文件中删除标识符为rid的记录

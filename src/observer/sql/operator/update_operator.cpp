@@ -46,13 +46,11 @@ RC UpdateOperator::open()
     Record &record = row_tuple->record();
     rc = table->update_record(trx_, update_stmt_->attr_names(), &record, update_stmt_->values());
     if (rc != RC::SUCCESS) {
+      LOG_WARN("failed to update record: %s", strrc(rc));
       if (rc == RC::RECORD_DUPLICATE_KEY) {
-        LOG_WARN("same value, not need to update");
         continue;
-      } else {
-        LOG_WARN("failed to update record: %s", strrc(rc));
-        return rc;
       }
+      return rc;
     }
     row_num_++;
   }

@@ -108,6 +108,7 @@ private:
 
 public:
   RC recover_insert_record(Record *record);
+  RC recover_update_record(Record *record);
 
 private:
   friend class RecordUpdater;

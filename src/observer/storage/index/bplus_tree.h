@@ -197,6 +197,7 @@ struct IndexFileHeader {
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
+  bool unique;
   PageNum root_page;
   int32_t internal_max_size;
   int32_t leaf_max_size;
@@ -422,7 +423,7 @@ public:
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
+  RC create(const char *file_name, bool unique, std::vector<AttrType> attr_type, std::vector<int> attr_length,
       std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
@@ -511,10 +512,6 @@ protected:
   RC adjust_root(Frame *root_frame);
 
 private:
-  char *make_key(const char *user_key, const RID &rid)
-  {
-    return make_key(user_key, rid, false);
-  }
   char *make_key(const char *user_key, const RID &rid, bool unique);
 
   void free_key(char *key);
