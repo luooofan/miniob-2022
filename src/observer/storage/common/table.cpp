@@ -1056,8 +1056,9 @@ RC Table::delete_entry_of_indexes(const char *record, const RID &rid, bool error
       LOG_WARN("delete from index [%s] failed, rc=%d:%s", index->index_meta().name(), rc, strrc(rc));
       // if (rc != RC::RECORD_INVALID_KEY || !error_on_not_exists)
       // if (rc != RC::RECORD_RECORD_NOT_EXIST || !error_on_not_exists) {
-      if (rc != RC::RECORD_RECORD_NOT_EXIST_1 || rc != RC::RECORD_RECORD_NOT_EXIST_2 ||
-          rc != RC::RECORD_RECORD_NOT_EXIST_3 || rc != RC::RECORD_RECORD_NOT_EXIST_4 || !error_on_not_exists) {
+      if ((rc != RC::RECORD_RECORD_NOT_EXIST_1 && rc != RC::RECORD_RECORD_NOT_EXIST_2 &&
+              rc != RC::RECORD_RECORD_NOT_EXIST_3 && rc != RC::RECORD_RECORD_NOT_EXIST_4) ||
+          !error_on_not_exists) {
         break;
       }
     }
