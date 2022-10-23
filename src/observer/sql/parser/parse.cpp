@@ -306,7 +306,7 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
 {
-  expr->type = ExpType::AGGRFUNC;
+  expr->type = ExpType::FUNC;
   expr->afexp = NULL;
   expr->fexp = f_expr;
   expr->bexp = NULL;

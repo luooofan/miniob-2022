@@ -12,13 +12,239 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/07/05.
 //
 
+#include <iomanip>
 #include "sql/expr/expression.h"
 #include "common/lang/string.h"
 #include "common/log/log.h"
 #include "sql/expr/tuple.h"
-#include <unordered_map>
 #include "sql/stmt/select_stmt.h"
 #include "sql/operator/project_operator.h"
+
+RC FuncExpression::get_func_length_value(const Tuple &tuple, TupleCell &final_cell) const
+{
+  Expression *param_expr = *params_expr_.begin();
+  TupleCell param_cell;
+  param_expr->get_value(tuple, param_cell);
+  // unsupported not chars
+  if (param_cell.attr_type() != CHARS) {
+    return RC::INTERNAL;
+  }
+  const char *param_char = param_cell.data();
+  int *result_length = new int(strlen(param_char));
+  final_cell.set_type(INTS);
+  final_cell.set_length(sizeof(int));
+  final_cell.set_data((char *)(result_length));
+  return RC::SUCCESS;
+}
+
+RC FuncExpression::get_func_round_value(const Tuple &tuple, TupleCell &final_cell) const
+{
+  if (param_size_ > 1) {
+    Expression *param_expr = *params_expr_.begin();
+    Expression *param_expr_precision = params_expr_[1];
+    TupleCell param_expr_cell;
+    TupleCell param_expr_precision_cell;
+    param_expr->get_value(tuple, param_expr_cell);
+    param_expr_precision->get_value(tuple, param_expr_precision_cell);
+    if (param_expr_cell.attr_type() != FLOATS) {
+      return RC::INTERNAL;
+    }
+    if (param_expr_precision_cell.attr_type() != INTS) {
+      return RC::INTERNAL;
+    }
+    float cell_float = *(float *)(param_expr_cell.data());
+    int cell_precision = *(int *)(param_expr_precision_cell.data());
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(cell_precision) << cell_float;
+    ss >> cell_float;
+    float *result_float = new float(cell_float);
+    final_cell.set_type(FLOATS);
+    final_cell.set_length(sizeof(float));
+    final_cell.set_data((char *)(result_float));
+  } else {
+    Expression *param_expr = *params_expr_.begin();
+    TupleCell param_expr_cell;
+    param_expr->get_value(tuple, param_expr_cell);
+    if (param_expr_cell.attr_type() != FLOATS) {
+      return RC::INTERNAL;
+    }
+    float cell_float = *(float *)(param_expr_cell.data());
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(0) << cell_float;
+    ss >> cell_float;
+    float *result_float = new float(cell_float);
+    final_cell.set_type(FLOATS);
+    final_cell.set_length(sizeof(float));
+    final_cell.set_data((char *)(result_float));
+  }
+  return RC::SUCCESS;
+}
+
+RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &final_cell) const
+{
+  Expression *date_expr = params_expr_[0];
+  Expression *format_expr = params_expr_[1];
+  TupleCell date_expr_cell;
+  TupleCell format_expr_cell;
+  date_expr->get_value(tuple, date_expr_cell);
+  format_expr->get_value(tuple, format_expr_cell);
+  if (date_expr_cell.attr_type() != DATES) {
+    return RC::INTERNAL;
+  }
+  if (format_expr_cell.attr_type() != CHARS) {
+    return RC::INTERNAL;
+  }
+  int cell_date = *(int *)(date_expr_cell.data());
+  char *cell_format_chars = (char *)(format_expr_cell.data());
+  std::string result_date_str;
+  int year = cell_date / 10000;
+  int month = (cell_date / 100) % 100;
+  int day = cell_date % 100;
+  for (size_t i = 0; i < strlen(cell_format_chars); i++) {
+    // A ~ z
+    if (65 <= cell_format_chars[i] && cell_format_chars[i] <= 122) {
+      switch (cell_format_chars[i]) {
+        case 'Y': {
+          char tmp[5];
+          sprintf(tmp, "%d", year);
+          result_date_str += tmp;
+          break;
+        }
+        case 'y': {
+          char tmp[5];
+          sprintf(tmp, "%d", year % 100);
+          result_date_str += tmp;
+          break;
+        }
+        case 'M': {
+          switch (month) {
+            case 1: {
+              result_date_str += "January";
+              break;
+            }
+            case 2: {
+              result_date_str += "February";
+              break;
+            }
+            case 3: {
+              result_date_str += "March";
+              break;
+            }
+            case 4: {
+              result_date_str += "April";
+              break;
+            }
+            case 5: {
+              result_date_str += "May";
+              break;
+            }
+            case 6: {
+              result_date_str += "June";
+              break;
+            }
+            case 7: {
+              result_date_str += "July";
+              break;
+            }
+            case 8: {
+              result_date_str += "August";
+              break;
+            }
+            case 9: {
+              result_date_str += "September";
+              break;
+            }
+            case 10: {
+              result_date_str += "October";
+              break;
+            }
+            case 11: {
+              result_date_str += "November";
+              break;
+            }
+            case 12: {
+              result_date_str += "December";
+              break;
+            }
+            default: {
+              return RC::INTERNAL;
+              break;
+            }
+          }
+          break;
+        }
+        case 'm': {
+          char tmp[3];
+          sprintf(tmp, "%d", month);
+          if (1 <= month && month <= 9) {
+            result_date_str += '0';
+            result_date_str += tmp;
+          } else {
+            result_date_str += tmp;
+          }
+          break;
+        }
+        case 'D': {
+          char tmp[3];
+          sprintf(tmp, "%d", day);
+          if (1 <= day && day <= 9) {
+            result_date_str += '0';
+          }
+          if (10 <= day && day <= 20) {
+            result_date_str += tmp;
+            result_date_str += "th";
+          } else {
+            switch (day % 10) {
+              case 1: {
+                result_date_str += tmp;
+                result_date_str += "st";
+                break;
+              }
+              case 2: {
+                result_date_str += tmp;
+                result_date_str += "nd";
+                break;
+              }
+              case 3: {
+                result_date_str += tmp;
+                result_date_str += "rd";
+                break;
+              }
+              default: {
+                result_date_str += tmp;
+                result_date_str += "th";
+                break;
+              }
+            }
+          }
+          break;
+        }
+        case 'd': {
+          char tmp[3];
+          sprintf(tmp, "%d", day);
+          if (1 <= day && day <= 9) {
+            result_date_str += '0';
+            result_date_str += tmp;
+          } else {
+            result_date_str += tmp;
+          }
+          break;
+        }
+        default: {
+          return RC::INTERNAL;
+          break;
+        }
+      }
+    } else if (cell_format_chars[i] != '%') {
+      result_date_str += cell_format_chars[i];
+    }
+  }
+  // std::cout << result_date_str << std::endl;
+  final_cell.set_data(strdup(result_date_str.c_str()));
+  final_cell.set_type(CHARS);
+  final_cell.set_length(strlen(result_date_str.c_str()));
+  return RC::SUCCESS;
+}
 
 void FieldExpr::to_string(std::ostream &os) const
 {
@@ -289,7 +515,7 @@ RC Expression::create_expression(const Expr *expr, const std::unordered_map<std:
   } else if (expr->type == BINARY) {
     return BinaryExpression::create_expression(expr, table_map, tables, res_expr);
   } else if (expr->type == FUNC) {
-    return RC::UNIMPLENMENT;
+    return FuncExpression::create_expression(expr, table_map, tables, res_expr);
   } else if (AGGRFUNC == expr->type) {
     return AggrFuncExpression::create_expression(expr, table_map, tables, res_expr);
   } else if (SUBQUERY == expr->type) {
@@ -406,6 +632,61 @@ RC AggrFuncExpression::create_expression(const Expr *expr, const std::unordered_
   assert(nullptr != param && ExprType::FIELD == param->type());
   res_expr = new AggrFuncExpression(expr->afexp->type, (FieldExpr *)param, with_brace);
   return RC::SUCCESS;
+}
+
+RC FuncExpression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+    const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp, Db *db)
+{
+  RC rc = RC::SUCCESS;
+  Expression *param_expr1 = nullptr;
+  Expression *param_expr2 = nullptr;
+  FuncExpr *fexp = expr->fexp;
+  switch (fexp->type) {
+    case FUNC_LENGTH: {
+      rc = Expression::create_expression(fexp->params[0], table_map, tables, param_expr1, comp, db);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("FuncExpression LENGTH Create Param[0] Failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
+      break;
+    }
+    case FUNC_ROUND: {
+      rc = Expression::create_expression(fexp->params[0], table_map, tables, param_expr1, comp, db);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("FuncExpression ROUND Create Param[0] Failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
+      if (expr->fexp->param_size == 2) {
+        rc = Expression::create_expression(fexp->params[1], table_map, tables, param_expr2, comp, db);
+        if (rc != RC::SUCCESS) {
+          LOG_ERROR("FuncExpression ROUND Create Param[1] Failed. RC = %d:%s", rc, strrc(rc));
+          delete param_expr1;
+          return rc;
+        }
+      }
+      break;
+    }
+    case FUNC_DATE_FORMAT: {
+      rc = Expression::create_expression(fexp->params[0], table_map, tables, param_expr1, comp, db);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("FuncExpression DATE_FORMAT Create Param[0] Failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
+      rc = Expression::create_expression(fexp->params[1], table_map, tables, param_expr2, comp, db);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("FuncExpression DATE_FORMAT Create Param[1] Failed. RC = %d:%s", rc, strrc(rc));
+        delete param_expr1;
+        return rc;
+      }
+      break;
+    }
+    default:
+      return RC::UNIMPLENMENT;
+      break;
+  }
+
+  res_expr = new FuncExpression(expr->fexp->type, expr->fexp->param_size, param_expr1, param_expr2, 0);
+  return rc;
 }
 
 RC SubQueryExpression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
