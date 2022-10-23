@@ -444,14 +444,14 @@ public:
    * 即向索引中插入一个值为（user_key，rid）的键值对
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC insert_entry(const char *user_key, const RID *rid, bool unique);
+  RC insert_entry(const char *user_key, const RID *rid);
 
   /**
    * 从IndexHandle句柄对应的索引中删除一个值为（*pData，rid）的索引项
    * @return RECORD_INVALID_KEY 指定值不存在
    * @note 这里假设user_key的内存大小与attr_length 一致
    */
-  RC delete_entry(const char *user_key, const RID *rid, bool unique);
+  RC delete_entry(const char *user_key, const RID *rid);
 
   bool is_empty() const;
 
@@ -512,6 +512,10 @@ protected:
   RC adjust_root(Frame *root_frame);
 
 private:
+  char *make_key(const char *user_key, const RID &rid)
+  {
+    return make_key(user_key, rid, false);
+  }
   char *make_key(const char *user_key, const RID &rid, bool unique);
 
   void free_key(char *key);

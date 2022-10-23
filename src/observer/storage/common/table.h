@@ -67,7 +67,7 @@ public:
   RC insert_record(Trx *trx, int value_num, std::vector<Row> *rows);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
-  RC update_record(Trx *trx, std::vector<char *> attr_names, Record *record, std::vector<Value> values);
+  RC update_record(Trx *trx, Record *record, char *old_data);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
   RC delete_record(Trx *trx, Record *record);
   RC recover_delete_record(Record *record);
@@ -115,6 +115,7 @@ private:
   friend class RecordDeleter;
 
   RC insert_entry_of_indexes(const char *record, const RID &rid);
+  RC update_entry_of_indexes(const char *record, const RID &rid);
   RC delete_entry_of_indexes(const char *record, const RID &rid, bool error_on_not_exists);
 
 private:

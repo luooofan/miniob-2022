@@ -793,58 +793,12 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   return RC::GENERIC_ERROR;
 }
 
-RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record, std::vector<Value> values)
+RC Table::update_record(Trx *trx, Record *record, char *old_data)
 {
   RC rc = RC::SUCCESS;
   if (trx != nullptr) {
     trx->init_trx_info(this, *record);
   }
-
-  int record_size = table_meta_.record_size();
-  char *old_data = new char[record_size];         // old_record->data
-  memcpy(old_data, record->data(), record_size);  // old_record->data
-  char *data = new char[record_size];             // new_record->data
-  memcpy(data, record->data(), record_size);      // new_record->data
-
-  for (size_t idx = 0; idx < attr_names.size(); idx++) {
-    int field_offset = -1;
-    int field_length = -1;
-    const int sys_field_num = table_meta_.sys_field_num();
-    const int user_field_num = table_meta_.field_num() - sys_field_num;
-    for (int i = 0; i < user_field_num; i++) {
-      const FieldMeta *field_meta = table_meta_.field(i + sys_field_num);
-      const char *field_name = field_meta->name();
-      if (0 != strcmp(field_name, attr_names[idx])) {
-        continue;
-      }
-
-      const AttrType field_type = field_meta->type();
-      const AttrType value_type = values[idx].type;
-      if (field_type != value_type) {  // TODO try to convert the value type to field type
-        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-            name(),
-            field_meta->name(),
-            field_type,
-            value_type);
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
-      }
-
-      field_offset = field_meta->offset();
-      field_length = field_meta->len();
-      break;
-    }
-    if (field_offset == -1 || field_length == -1) {
-      LOG_ERROR("failed to get filed offset or length");
-      return RC::SCHEMA_FIELD_NOT_EXIST;
-    }
-    memcpy(data + field_offset, values[idx].data, field_length);
-  }
-
-  if (0 == memcmp(data, old_data, record_size)) {
-    LOG_WARN("duplicate value");
-    return RC::RECORD_DUPLICATE_KEY;
-  }
-  record->set_data(data);
 
   // delete index for old_record
   rc = delete_entry_of_indexes(old_data, record->rid(), true);
@@ -866,21 +820,13 @@ RC Table::update_record(Trx *trx, std::vector<char *> attr_names, Record *record
   }
 
   // add index for new_record
-  rc = insert_entry_of_indexes(record->data(), record->rid());
+  rc = update_entry_of_indexes(record->data(), record->rid());
   if (rc != RC::SUCCESS) {
     LOG_WARN("Failed to update index, rc=%d:%s", rc, strrc(rc));
-    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), false);
-    if (rc2 != RC::SUCCESS && rc2 != RC::RECORD_RECORD_NOT_EXIST) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-          name(),
-          rc2,
-          strrc(rc2));
-      return rc2;
-    }
 
-    // rollback record data
+    // rollback current record data
     record->set_data(old_data);
-    rc2 = record_handler_->update_record(record);
+    RC rc2 = record_handler_->update_record(record);
     if (rc2 != RC::SUCCESS) {
       LOG_ERROR("Failed to update record (rid=%d.%d). rc=%d:%s",
           record->rid().page_num,
@@ -1071,6 +1017,33 @@ RC Table::insert_entry_of_indexes(const char *record, const RID &rid)
       break;
     }
   }
+  return rc;
+}
+
+RC Table::update_entry_of_indexes(const char *record, const RID &rid)
+{
+  RC rc = RC::SUCCESS;
+  std::vector<Index *> index_done;
+  for (Index *index : indexes_) {
+    rc = index->insert_entry(record, &rid);
+    if (rc == RC::SUCCESS) {
+      index_done.push_back(index);
+    } else {
+      LOG_WARN("insert into index [%s] failed, rc=%d:%s", index->index_meta().name(), rc, strrc(rc));
+
+      // delete index saved just now
+      for (Index *index : index_done) {
+        RC rc2 = index->delete_entry(record, &rid);
+        if (rc2 != RC::SUCCESS) {
+          LOG_WARN("rollback insert index [%s] failed, rc=%d:%s", index->index_meta().name(), rc2, strrc(rc2));
+          break;
+        }
+      }
+
+      break;
+    }
+  }
+  index_done.clear();
   return rc;
 }
 

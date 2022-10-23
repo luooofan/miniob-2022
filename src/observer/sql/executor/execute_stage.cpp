@@ -772,7 +772,12 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
 
   rc = update_oper.open();
   if (rc != RC::SUCCESS) {
-    session_event->set_response("FAILURE\n");
+    // look for failure
+    if (rc != RC::RECORD_DUPLICATE_KEY) {
+      session_event->set_response("FAILURE " + std::string(strrc(rc)) + "\n");
+    } else {
+      session_event->set_response("FAILURE\n");
+    }
   } else {
     session_event->set_response("SUCCESS\n");
     if (!session->is_trx_multi_operation_mode()) {

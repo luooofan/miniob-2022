@@ -99,14 +99,12 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  bool unique = index_meta_.is_unique();
-  return index_handler_.insert_entry(record, rid, unique);
+  return index_handler_.insert_entry(record, rid);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)
 {
-  bool unique = index_meta_.is_unique();
-  return index_handler_.delete_entry(record, rid, unique);
+  return index_handler_.delete_entry(record, rid);
 }
 
 IndexScanner *BplusTreeIndex::create_scanner(
