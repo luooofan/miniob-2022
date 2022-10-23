@@ -15,6 +15,8 @@ See the Mulan PSL v2 for more details. */
 #include "rc.h"
 #include "common/log/log.h"
 #include "common/lang/string.h"
+#include "sql/expr/expression.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/filter_stmt.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
@@ -77,6 +79,43 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
   return RC::SUCCESS;
 }
 
+RC FilterStmt::create_expression(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
+    const Expr *expr, Expression *&expression)
+{
+  RC rc = RC::SUCCESS;
+  if (ExpType::BINARY == expr->type) {
+    BinaryExpr *bexp = expr->bexp;
+    Expression *tmp1 = nullptr;
+    Expression *tmp2 = nullptr;
+    rc = create_expression(db, default_table, tables, bexp->left, tmp1);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("BinaryExpression create left expression failed");
+      return rc;
+    }
+    rc = create_expression(db, default_table, tables, bexp->right, tmp2);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("BinaryExpression create right expression failed");
+      return rc;
+    }
+    expression = new BinaryExpression(bexp->op, tmp1, tmp2);
+    return RC::SUCCESS;
+  }
+  assert(ExpType::UNARY == expr->type);
+  UnaryExpr *uexp = expr->uexp;
+  if (uexp->is_attr) {
+    Table *table = nullptr;
+    const FieldMeta *field = nullptr;
+    rc = get_table_and_field(db, default_table, tables, uexp->attr, table, field);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot find attr");
+      return rc;
+    }
+    expression = new FieldExpr(table, field);
+  } else {
+    expression = new ValueExpr(uexp->value);
+  }
+  return RC::SUCCESS;
+}
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     const Condition &condition, FilterUnit *&filter_unit)
 {
@@ -90,33 +129,17 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   Expression *left = nullptr;
   Expression *right = nullptr;
-  if (condition.left_is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.left_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    left = new FieldExpr(table, field);
-  } else {
-    left = new ValueExpr(condition.left_value);
+  rc = Expression::create_expression(condition.left, *tables, std::vector<Table *>{default_table}, left);
+  // rc = create_expression(db, default_table, tables, condition.left, left);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("filter unit create left expression failed");
+    return rc;
   }
-
-  if (condition.right_is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, condition.right_attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      delete left;
-      return rc;
-    }
-    right = new FieldExpr(table, field);
-  } else {
-    right = new ValueExpr(condition.right_value);
+  rc = Expression::create_expression(condition.right, *tables, std::vector<Table *>{default_table}, right);
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("filter unit create right expression failed");
+    return rc;
   }
-
   filter_unit = new FilterUnit;
   filter_unit->set_comp(comp);
   filter_unit->set_left(left);

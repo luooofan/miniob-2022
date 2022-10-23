@@ -35,9 +35,9 @@ DOUBLE_QUOTE     \"
 
 {WHITE_SAPCE}                                        // ignore whitespace
 \n                                                   ;
-
-[\-]?{DIGIT}+                                        yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
-[\-]?{DIGIT}+{DOT}{DIGIT}+                           yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
+"-"                                                  RETURN_TOKEN(SUB);
+{DIGIT}+                                        yylval->number=atoi(yytext); RETURN_TOKEN(NUMBER);
+{DIGIT}+{DOT}{DIGIT}+                           yylval->floats=(float)(atof(yytext)); RETURN_TOKEN(FLOAT);
 
 ";"                                                  RETURN_TOKEN(SEMICOLON);
 {DOT}                                                RETURN_TOKEN(DOT);
@@ -45,6 +45,7 @@ DOUBLE_QUOTE     \"
 [Ee][Xx][Ii][Tt]                                     RETURN_TOKEN(EXIT);
 [Hh][Ee][Ll][Pp]                                     RETURN_TOKEN(HELP);
 [Dd][Ee][Ss][Cc]                                     RETURN_TOKEN(DESC);
+[Aa][Ss][Cc]                                         RETURN_TOKEN(ASC);
 [Cc][Rr][Ee][Aa][Tt][Ee]                             RETURN_TOKEN(CREATE);
 [Dd][Rr][Oo][Pp]                                     RETURN_TOKEN(DROP);
 [Tt][Aa][Bb][Ll][Ee]                                 RETURN_TOKEN(TABLE);
@@ -78,6 +79,21 @@ DOUBLE_QUOTE     \"
 [Nn][Oo][Tt]                                         RETURN_TOKEN(NOT);
 [Ll][Ii][Kk][Ee]                                     RETURN_TOKEN(LIKE); 
 [Uu][Nn][Ii][Qq][Uu][Ee]                             RETURN_TOKEN(UNIQUE);
+[Oo][Rr][Dd][Ee][Rr]                                 RETURN_TOKEN(ORDER);
+[Gg][Rr][Oo][Uu][Pp]                                 RETURN_TOKEN(GROUP);
+[Bb][Yy]                                             RETURN_TOKEN(BY);
+[Hh][Aa][Vv][Ii][Nn][Gg]                             RETURN_TOKEN(HAVING);
+[Mm][Aa][Xx]                                         RETURN_TOKEN(AGGR_MAX);
+[Mm][Ii][Nn]                                         RETURN_TOKEN(AGGR_MIN);
+[Ss][Uu][Mm]                                         RETURN_TOKEN(AGGR_SUM);
+[Aa][Vv][Gg]                                         RETURN_TOKEN(AGGR_AVG);
+[Cc][Oo][Uu][Nn][Tt]                                 RETURN_TOKEN(AGGR_COUNT);
+[Ll][Ee][Nn][Gg][Tt][Hh]                             RETURN_TOKEN(LENGTH);
+[Rr][Oo][Uu][Nn][Dd]                                 RETURN_TOKEN(ROUND);
+[Dd][Aa][Tt][Ee][_][Ff][Oo][Rr][Mm][Aa][Tt]          RETURN_TOKEN(DATE_FORMAT);
+[Ii][Ss]                                             RETURN_TOKEN(IS);
+[Nn][Uu][Ll][Ll]                                     RETURN_TOKEN(NULL_VALUE);
+[Nn][Uu][Ll][Ll][Aa][Bb][Ll][Ee]                     RETURN_TOKEN(NULLABLE);
 {ID}                                                 yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 "("                                                  RETURN_TOKEN(LBRACE);
 ")"                                                  RETURN_TOKEN(RBRACE);
@@ -90,6 +106,9 @@ DOUBLE_QUOTE     \"
 "<"                                                  RETURN_TOKEN(LT);
 ">="                                                 RETURN_TOKEN(GE);
 ">"                                                  RETURN_TOKEN(GT);
+"+"                                                  RETURN_TOKEN(ADD);
+
+"/"                                                  RETURN_TOKEN(DIV);
 
 {QUOTE}([0-9]{4})\-([0-9]|[0-9]{2})\-([0-9]|[0-9]{2}){QUOTE}     yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
 {QUOTE}(\\\47|[\40\42A-Za-z0-9_/\.\-\%])*{QUOTE}            yylval->string=strdup(yytext); RETURN_TOKEN(SSS);

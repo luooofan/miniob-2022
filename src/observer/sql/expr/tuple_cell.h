@@ -14,7 +14,10 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cassert>
+#include <cstring>
 #include <iostream>
+#include "sql/parser/parse_defs.h"
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
 
@@ -27,6 +30,15 @@ public:
   TupleCell(AttrType attr_type, char *data) : attr_type_(attr_type), data_(data)
   {}
 
+  static const TupleCell add(const TupleCell &left, const TupleCell &right);
+  static const TupleCell sub(const TupleCell &left, const TupleCell &right);
+  static const TupleCell mul(const TupleCell &left, const TupleCell &right);
+  static const TupleCell div(const TupleCell &left, const TupleCell &right);
+
+  void set_null()
+  {
+    this->attr_type_ = AttrType::NULLS;
+  }
   void set_type(AttrType type)
   {
     this->attr_type_ = type;
@@ -42,6 +54,28 @@ public:
   void set_data(const char *data)
   {
     this->set_data(const_cast<char *>(data));
+  }
+  void modify_data(char *data)
+  {
+    if (nullptr == data_) {
+      return;
+    }
+    switch (attr_type_) {
+      case AttrType::DATES:
+      case AttrType::INTS:
+        memcpy(data_, data, sizeof(int));
+        break;
+      case AttrType::FLOATS:
+        memcpy(data_, data, sizeof(float));
+        break;
+      case AttrType::CHARS:
+        // TODO(wbj) note memcpy len
+        memcpy(data_, data, length_);
+        break;
+      default:
+        break;
+    }
+    return;
   }
 
   void to_string(std::ostream &os) const;
@@ -61,6 +95,57 @@ public:
   AttrType attr_type() const
   {
     return attr_type_;
+  }
+
+  bool operator==(const TupleCell &other) const
+  {
+    return 0 == compare(other);
+  }
+
+  bool operator!=(const TupleCell &other) const
+  {
+    return 0 != compare(other);
+  }
+
+  bool operator<(const TupleCell &other) const
+  {
+    return 0 > compare(other);
+  }
+
+  bool operator<=(const TupleCell &other) const
+  {
+    return 0 >= compare(other);
+  }
+
+  bool operator>(const TupleCell &other) const
+  {
+    return 0 < compare(other);
+  }
+
+  bool operator>=(const TupleCell &other) const
+  {
+    return 0 <= compare(other);
+  }
+
+  static const TupleCell &min(const TupleCell &a, const TupleCell &b)
+  {
+    if (a.is_null()) {
+      return b;  // even if b is also null
+    }
+    return a <= b ? a : b;
+  }
+
+  static const TupleCell &max(const TupleCell &a, const TupleCell &b)
+  {
+    if (a.is_null()) {
+      return b;  // even if b is also null
+    }
+    return a >= b ? a : b;
+  }
+
+  bool is_null() const
+  {
+    return AttrType::NULLS == attr_type_;
   }
 
 private:

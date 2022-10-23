@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/groupby_operator.h"
 #include "sql/operator/operator.h"
 #include "sql/operator/table_scan_operator.h"
 #include "sql/operator/index_scan_operator.h"
@@ -40,6 +41,8 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/delete_operator.h"
 #include "sql/operator/project_operator.h"
 #include "sql/operator/join_operator.h"
+#include "sql/operator/sort_operator.h"
+#include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
 #include "sql/stmt/update_stmt.h"
@@ -481,6 +484,7 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
 
     join_oper = new JoinOperator(left_oper, right_oper);
     oper_store.push_front(join_oper);
+    delete_opers.push_back(join_oper);
 
     // get proper filter unit. then add to join_oper
     for (auto it = filter_units.begin(); it != filter_units.end();) {
@@ -506,6 +510,7 @@ RC ExecuteStage::do_join(SelectStmt *select_stmt, Operator **result_op, std::vec
       }
     }
   }
+
   *result_op = oper_store.front();
   return RC::SUCCESS;
 }
@@ -535,17 +540,111 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     }
   });
 
+  Operator *top_op = scan_oper;
+
+  // 1. process where clause
   PredicateOperator pred_oper(select_stmt->filter_stmt());
-  pred_oper.add_child(scan_oper);
-  ProjectOperator project_oper;
-  project_oper.add_child(&pred_oper);
-  auto &field = select_stmt->query_fields();
-  for (auto it = field.begin(); it != field.end(); it++) {
-    project_oper.add_projection(it->table(), it->meta(), is_single_table);
+  pred_oper.add_child(top_op);
+  top_op = &pred_oper;
+
+  // 2 process groupby clause and aggrfunc fileds
+  // 2.1 gen sort oper for groupby
+  SortOperator sort_oper_for_groupby(select_stmt->orderby_stmt_for_groupby());
+  if (nullptr != select_stmt->orderby_stmt_for_groupby()) {
+    sort_oper_for_groupby.add_child(top_op);
+    top_op = &sort_oper_for_groupby;
   }
+
+  // 2.2 get aggrfunc_exprs from projects
+  std::vector<AggrFuncExpression *> aggr_exprs;
+  for (auto project : select_stmt->projects()) {
+    AggrFuncExpression::get_aggrfuncexprs(project, aggr_exprs);
+  }
+
+  // 2.3 get normal field_exprs from projects
+  std::vector<FieldExpr *> field_exprs;
+  for (auto project : select_stmt->projects()) {
+    FieldExpr::get_fieldexprs_without_aggrfunc(project, field_exprs);
+  }
+
+  // 2.4 get aggrfunc_exprs field_exprs from havings
+  HavingStmt *having_stmt = select_stmt->having_stmt();
+  if (nullptr != having_stmt) {
+    // TODO(wbj) unique
+    for (auto hf : having_stmt->filter_units()) {
+      AggrFuncExpression::get_aggrfuncexprs(hf->left(), aggr_exprs);
+      AggrFuncExpression::get_aggrfuncexprs(hf->right(), aggr_exprs);
+      FieldExpr::get_fieldexprs_without_aggrfunc(hf->left(), field_exprs);
+      FieldExpr::get_fieldexprs_without_aggrfunc(hf->right(), field_exprs);
+    }
+  }
+
+  GroupByStmt *groupby_stmt = select_stmt->groupby_stmt();
+  // 2.5 do check (we should do this check earlier actually)
+  if (!aggr_exprs.empty() && !field_exprs.empty()) {
+    if (nullptr == groupby_stmt) {
+      session_event->set_response("FAILURE\n");
+      return RC::SQL_SYNTAX;
+    }
+    for (auto field_expr : field_exprs) {
+      bool in_groupby = false;
+      for (auto groupby_unit : groupby_stmt->groupby_units()) {
+        if (field_expr->in_expression(groupby_unit->expr())) {
+          in_groupby = true;
+          break;
+        }
+      }
+      if (!in_groupby) {
+        session_event->set_response("FAILURE\n");
+        return RC::SQL_SYNTAX;
+      }
+    }
+  }
+
+  // 2.6 gen groupby oper
+  GroupByStmt *empty_groupby_stmt = nullptr;  // new a empty groupby stmt for no groupby fields
+  DEFER([&]() {
+    if (nullptr != empty_groupby_stmt) {
+      delete empty_groupby_stmt;
+    }
+  });
+  GroupByOperator group_oper(groupby_stmt, aggr_exprs, field_exprs);
+  if (0 != aggr_exprs.size()) {
+    if (nullptr == select_stmt->groupby_stmt()) {
+      empty_groupby_stmt = new GroupByStmt();
+      group_oper.set_groupby_stmt(empty_groupby_stmt);
+    }
+    group_oper.add_child(top_op);
+    top_op = &group_oper;
+  }
+
+  // 3 process having clause
+  HavingOperator having_oper(having_stmt);
+  if (nullptr != having_stmt) {
+    having_oper.add_child(top_op);
+    top_op = &having_oper;
+  }
+
+  // 4. process orderby clause
+  SortOperator sort_oper(select_stmt->orderby_stmt());
+  if (nullptr != select_stmt->orderby_stmt()) {
+    sort_oper.add_child(top_op);
+    top_op = &sort_oper;
+  }
+
+  // 5. process select clause
+  ProjectOperator project_oper;
+  project_oper.add_child(top_op);
+  top_op = &project_oper;
+  auto &projects = select_stmt->projects();
+  for (auto it = projects.begin(); it != projects.end(); it++) {
+    project_oper.add_projection(*it, is_single_table);
+  }
+
   rc = project_oper.open();
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to open operator");
+    session_event->set_response("FAILURE\n");
     return rc;
   }
 
@@ -567,6 +666,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
 
   if (rc != RC::RECORD_EOF) {
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
+    session_event->set_response("FAILURE\n");
     project_oper.close();
   } else {
     rc = project_oper.close();

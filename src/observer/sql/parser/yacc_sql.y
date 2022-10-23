@@ -10,16 +10,27 @@
 #include<stdlib.h>
 #include<string.h>
 
+#define TRUE 1
+#define FALSE 0
+
 typedef struct ParserContext {
   Query * ssql;
   size_t select_length;
   size_t condition_length;
+  size_t having_length;
+  size_t orderby_length;
+  size_t groupby_length;
+  size_t aggrfunc_length;
   size_t from_length;
   size_t value_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
+  Condition havings[MAX_NUM];
+  OrderBy orderbys[MAX_NUM];
+  GroupBy groupbys[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
+  AggrFuncType aggrfunctype;
 } ParserContext;
 
 //获取子串
@@ -50,9 +61,13 @@ void yyerror(yyscan_t scanner, const char *str)
   query_reset(context->ssql);
   context->ssql->flag = SCF_ERROR;
   context->condition_length = 0;
+  context->orderby_length = 0;
   context->from_length = 0;
   context->select_length = 0;
   context->value_length = 0;
+  context->having_length = 0;
+  context->groupby_length = 0;
+  context->aggrfunc_length = 0;
   context->ssql->sstr.insertion.value_num = 0;
   printf("parse sql failed. error=%s", str);
 }
@@ -77,10 +92,11 @@ ParserContext *get_context(yyscan_t scanner)
         TABLE
         TABLES
         INDEX
-		INNER
-		JOIN
+        INNER
+        JOIN
         SELECT
         DESC
+        ASC
         SHOW
         SYNC
         INSERT
@@ -96,6 +112,15 @@ ParserContext *get_context(yyscan_t scanner)
         STRING_T
 				DATE_T
         FLOAT_T
+        ORDER
+        GROUP
+        BY
+        HAVING
+        AGGR_MAX
+        AGGR_MIN
+        AGGR_SUM
+        AGGR_AVG
+        AGGR_COUNT
         HELP
         EXIT
         DOT //QUOTE
@@ -112,17 +137,34 @@ ParserContext *get_context(yyscan_t scanner)
         NOT
         LIKE
 				UNIQUE
+        ADD
+        SUB
+        MUL
+        DIV
+        IS
+        NULL_VALUE
+        NULLABLE
         EQ
         LT
         GT
         LE
         GE
         NE
+        LENGTH
+        ROUND
+        DATE_FORMAT
 
 %union {
   struct _Attr *attr;
   struct _Condition *condition1;
+  struct _Condition *having1;
   struct _Value *value1;
+  struct _UnaryExpr* uexp1;
+  struct _Expr* exp1;
+  struct _Expr* exp2;
+  struct _Expr* exp3;
+  struct _Expr* exp4;
+  struct _Expr* exp5;
   char *string;
   int number;
   float floats;
@@ -141,8 +183,14 @@ ParserContext *get_context(yyscan_t scanner)
 
 %type <number> type;
 %type <condition1> condition;
+%type <having1> having;
 %type <value1> value;
 %type <number> number;
+%type <exp1> unary_expr;
+%type <exp2> mul_expr;
+%type <exp3> add_expr;
+%type <exp4> func_expr;
+%type <exp5> aggr_func_expr;
 
 %%
 
@@ -286,7 +334,7 @@ attr_def:
     ID_get type LBRACE number RBRACE 
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, $4);
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, FALSE);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name =(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
@@ -297,12 +345,40 @@ attr_def:
     |ID_get type
 		{
 			AttrInfo attribute;
-			attr_info_init(&attribute, CONTEXT->id, $2, 4);
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, FALSE);
 			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name=(char*)malloc(sizeof(char));
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type=$2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length=4; // default attribute length
+			CONTEXT->value_length++;
+		}
+    |ID_get type LBRACE number RBRACE NOT NULL_VALUE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, FALSE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type LBRACE number RBRACE NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, $4, TRUE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NOT NULL_VALUE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, FALSE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
+			CONTEXT->value_length++;
+		}
+    |ID_get type NULLABLE
+		{
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, $2, 4, TRUE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			CONTEXT->value_length++;
 		}
     ;
@@ -353,12 +429,245 @@ value_list:
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
 	  }
     ;
+
+mul_expr:
+    unary_expr {
+      $$ = $1;
+    }
+    | SUB unary_expr {
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, -1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
+      Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, MUL_OP, tmp_expr, $2);
+      binary_expr_set_minus(b_expr);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
+    | mul_expr STAR unary_expr {
+      Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, MUL_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
+    | mul_expr DIV unary_expr {
+    	Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, DIV_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
+    ;
+
+add_expr:
+    mul_expr { $$ = $1; }
+    | add_expr ADD mul_expr {
+    	Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, ADD_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
+    | add_expr SUB mul_expr {
+    	Expr * expr = malloc(sizeof(Expr));
+      BinaryExpr * b_expr = malloc(sizeof(BinaryExpr));
+      binary_expr_init(b_expr, SUB_OP, $1, $3);
+      expr_init_binary(expr, b_expr);
+      $$ = expr;
+    }
+    ;
+
+condition:
+    add_expr comOp add_expr{
+      Condition expr;
+      condition_init(&expr, CONTEXT->comp, $1, $3);
+      // condition_print(&expr, 0);
+      CONTEXT->conditions[CONTEXT->condition_length++] = expr;
+    }
+    | add_expr IS NULL_VALUE {
+      Value value;
+      value_init_null(&value);
+
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &value);
+
+    	Expr *expr = malloc(sizeof(Expr));
+      expr_init_unary(expr, u_expr);
+
+      Condition cond;
+      condition_init(&cond, IS_NULL, $1, expr);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | add_expr IS NOT NULL_VALUE {
+      Value value;
+      value_init_null(&value);
+
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &value);
+
+    	Expr *expr = malloc(sizeof(Expr));
+      expr_init_unary(expr, u_expr);
+
+      Condition cond;
+      condition_init(&cond, IS_NOT_NULL, $1, expr);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    ;
+
+having_condition:
+    add_expr comOp add_expr{
+      Condition expr;
+      condition_init(&expr, CONTEXT->comp, $1, $3);
+      CONTEXT->havings[CONTEXT->having_length++] = expr;
+    }
+    ;
+
+unary_expr:
+    value {
+    	Expr *expr = malloc(sizeof(Expr));
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
+    }
+    | ID {
+    	Expr *expr = malloc(sizeof(Expr));
+      RelAttr attr;
+      relation_attr_init(&attr, NULL, $1);
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_attr(u_expr, &attr);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
+    }
+    | ID DOT ID {
+    	Expr *expr = malloc(sizeof(Expr));
+      RelAttr attr;
+      relation_attr_init(&attr, $1, $3);
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_attr(u_expr, &attr);
+      expr_init_unary(expr, u_expr);
+      $$ = expr;
+    }
+    | LBRACE add_expr RBRACE {
+      expr_set_with_brace($2);
+      $$ = $2;
+    }
+    | func_expr {
+      $$ = $1;
+    }
+    | aggr_func_expr {
+      $$ = $1;
+    }
+    ;
+
+aggr_func_type:
+    AGGR_MAX {
+      CONTEXT->aggrfunctype = MAX;
+    }
+    | AGGR_MIN {
+      CONTEXT->aggrfunctype = MIN;
+    }
+    | AGGR_SUM {
+      CONTEXT->aggrfunctype = SUM;
+    }
+    | AGGR_AVG {
+      CONTEXT->aggrfunctype = AVG;
+    }
+    | AGGR_COUNT {
+      CONTEXT->aggrfunctype = COUNT;
+    }
+    ;
+
+aggr_func_expr:
+    aggr_func_type LBRACE add_expr RBRACE
+    {
+      AggrFuncExpr* afexpr = malloc(sizeof(AggrFuncExpr));
+      aggr_func_expr_init(afexpr, CONTEXT->aggrfunctype, $3);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_aggr_func(expr, afexpr);
+      $$ = expr;
+    }
+    | aggr_func_type LBRACE STAR RBRACE
+    {
+      if (CONTEXT->aggrfunctype != COUNT) {
+        return -1;
+      }
+      // regard as a string value
+  		value_init_string(&CONTEXT->values[CONTEXT->value_length++], "*");
+
+    	Expr *param = malloc(sizeof(Expr));
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &CONTEXT->values[CONTEXT->value_length-1]);
+      expr_init_unary(param, u_expr);
+
+      AggrFuncExpr* afexpr = malloc(sizeof(AggrFuncExpr));
+      aggr_func_expr_init(afexpr, COUNT, param);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_aggr_func(expr, afexpr);
+      $$ = expr;
+    }
+    ;
+
+func_expr:
+    LENGTH LBRACE add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 0);
+      func_expr_init_params(fexpr, $3, NULL);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    ROUND LBRACE add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 1);
+      func_expr_init_params(fexpr, $3, NULL);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    ROUND LBRACE add_expr COMMA add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 1);
+      func_expr_init_params(fexpr, $3, $5);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    |
+    DATE_FORMAT LBRACE add_expr COMMA add_expr RBRACE
+    {
+      FuncExpr* fexpr = malloc(sizeof(FuncExpr));
+      func_expr_init_type(fexpr, 2);
+      func_expr_init_params(fexpr, $3, $5);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_func(expr, fexpr);
+      $$ = expr;
+    }
+    ;
+
 value:
     NUMBER{	
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
 		}
+    |SUB NUMBER{	
+  		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], -($2));
+		}
     |FLOAT{
   		value_init_float(&CONTEXT->values[CONTEXT->value_length++], $1);
+		}
+    |SUB FLOAT{
+  		value_init_float(&CONTEXT->values[CONTEXT->value_length++], -($2));
 		}
     |SSS {
 			$1 = substr($1,1,strlen($1)-2);
@@ -374,6 +683,9 @@ value:
 				return -1;
 			}
 		}
+    |NULL_VALUE {
+      value_init_null(&CONTEXT->values[CONTEXT->value_length++]);
+    }
     ;
     
 delete:		/*  delete 语句的语法解析树*/
@@ -397,17 +709,26 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where SEMICOLON
+    SELECT select_attr FROM ID rel_list where opt_order_by opt_group_by having SEMICOLON
 		{
 			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
 			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
 
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 
+			selects_append_orderbys(&CONTEXT->ssql->sstr.selection, CONTEXT->orderbys, CONTEXT->orderby_length);
+
+			selects_append_groupbys(&CONTEXT->ssql->sstr.selection, CONTEXT->groupbys, CONTEXT->groupby_length);
+
+			selects_append_havings(&CONTEXT->ssql->sstr.selection, CONTEXT->havings, CONTEXT->having_length);
+
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
 			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
+      CONTEXT->having_length=0;
+			CONTEXT->groupby_length=0;
+			CONTEXT->orderby_length=0;
 			CONTEXT->condition_length=0;
 			CONTEXT->from_length=0;
 			CONTEXT->select_length=0;
@@ -417,49 +738,43 @@ select:				/*  select 语句的语法解析树*/
 
 select_attr:
     STAR attr_list {  
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
+			ProjectCol project_col;
+			projectcol_init_star(&project_col, NULL);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
 		}
-    | ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, $1);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
-  	| ID DOT ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $1, $3);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
-	| ID DOT STAR attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $1, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-		}
+    |
+    ID DOT STAR attr_list{
+      ProjectCol project_col;
+			projectcol_init_star(&project_col, $1);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
+    |
+    add_expr attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $1);
+      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
     ;
 attr_list:
     /* empty */
-    | COMMA ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, NULL, $2);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-     	  // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].relation_name = NULL;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].attribute_name=$2;
-      }
-    | COMMA ID DOT ID attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $2, $4);
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
-  	  }
-	| COMMA ID DOT STAR attr_list {
-			RelAttr attr;
-			relation_attr_init(&attr, $2, "*");
-			selects_append_attribute(&CONTEXT->ssql->sstr.selection, &attr);
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length].attribute_name=$4;
-        // CONTEXT->ssql->sstr.selection.attributes[CONTEXT->select_length++].relation_name=$2;
-  	  }
+    |
+    COMMA STAR attr_list {  
+			ProjectCol project_col;
+			projectcol_init_star(&project_col, NULL);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+		}
+    |
+    COMMA ID DOT STAR attr_list{
+      ProjectCol project_col;
+			projectcol_init_star(&project_col, $2);
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
+    |
+    COMMA add_expr attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $2);
+      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+    }
   	;
 
 rel_list:
@@ -489,152 +804,19 @@ condition_list:
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
 			}
     ;
-condition:
-    ID comOp value 
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, NULL, $1);
-
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name = NULL;
-			// $$->left_attr.attribute_name= $1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
-
-		}
-		|value comOp value 
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 2];
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$ = ( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 0;
-			// $$->right_attr.relation_name = NULL;
-			// $$->right_attr.attribute_name = NULL;
-			// $$->right_value = *$3;
-
-		}
-		|ID comOp ID 
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, NULL, $1);
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, NULL, $3);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=$1;
-			// $$->comp = CONTEXT->comp;
-			// $$->right_is_attr = 1;
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=$3;
-
-		}
-    |value comOp ID
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, NULL, $3);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp=CONTEXT->comp;
-			
-			// $$->right_is_attr = 1;
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=$3;
-		
-		}
-    |ID DOT ID comOp value
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, $1, $3);
-			Value *right_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 0, NULL, right_value);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;
-			// $$->left_attr.relation_name=$1;
-			// $$->left_attr.attribute_name=$3;
-			// $$->comp=CONTEXT->comp;
-			// $$->right_is_attr = 0;   //属性值
-			// $$->right_attr.relation_name=NULL;
-			// $$->right_attr.attribute_name=NULL;
-			// $$->right_value =*$5;			
-							
+having:
+    /* empty */  { 
+      // do notion
     }
-    |value comOp ID DOT ID
-		{
-			Value *left_value = &CONTEXT->values[CONTEXT->value_length - 1];
-
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, $3, $5);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 0, NULL, left_value, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 0;//属性值
-			// $$->left_attr.relation_name=NULL;
-			// $$->left_attr.attribute_name=NULL;
-			// $$->left_value = *$1;
-			// $$->comp =CONTEXT->comp;
-			// $$->right_is_attr = 1;//属性
-			// $$->right_attr.relation_name = $3;
-			// $$->right_attr.attribute_name = $5;
-									
-    }
-    |ID DOT ID comOp ID DOT ID
-		{
-			RelAttr left_attr;
-			relation_attr_init(&left_attr, $1, $3);
-			RelAttr right_attr;
-			relation_attr_init(&right_attr, $5, $7);
-
-			Condition condition;
-			condition_init(&condition, CONTEXT->comp, 1, &left_attr, NULL, 1, &right_attr, NULL);
-			CONTEXT->conditions[CONTEXT->condition_length++] = condition;
-			// $$=( Condition *)malloc(sizeof( Condition));
-			// $$->left_is_attr = 1;		//属性
-			// $$->left_attr.relation_name=$1;
-			// $$->left_attr.attribute_name=$3;
-			// $$->comp =CONTEXT->comp;
-			// $$->right_is_attr = 1;		//属性
-			// $$->right_attr.relation_name=$5;
-			// $$->right_attr.attribute_name=$7;
+    | HAVING having_condition having_condition_list {	
     }
     ;
+having_condition_list:
+    /* empty */
+    | AND having_condition having_condition_list {
+    }
+    ;
+
 
 comOp:
   	  EQ { CONTEXT->comp = EQUAL_TO; }
@@ -646,6 +828,112 @@ comOp:
     | LIKE { CONTEXT->comp = LIKE_OP; }
     | NOT LIKE { CONTEXT->comp = NOT_LIKE_OP; }
     ;
+sort_unit:
+	ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DOT ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DESC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, FALSE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID ASC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DOT ID DESC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, FALSE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	|
+	ID DOT ID ASC
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		OrderBy orderby;
+		orderby_init(&orderby, TRUE, &attr);
+		CONTEXT->orderbys[CONTEXT->orderby_length++] = orderby;
+	}
+	;
+sort_list:
+	sort_unit COMMA sort_list
+		{
+			
+	}
+	| sort_unit
+		{
+			
+	}
+	;
+opt_order_by:
+	/* empty */
+	| ORDER BY sort_list
+		{
+
+	}
+	;
+
+groupby_unit:
+	ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, NULL, $1);
+		CONTEXT->groupbys[CONTEXT->groupby_length++] = attr;
+	}
+	|
+	ID DOT ID
+	{
+		RelAttr attr;
+		relation_attr_init(&attr, $1, $3);
+		CONTEXT->groupbys[CONTEXT->groupby_length++] = attr;
+	}
+  ;
+
+groupby_list:
+	groupby_unit COMMA groupby_list
+		{
+			
+	}
+	| groupby_unit
+		{
+			
+	}
+	;
+opt_group_by:
+	/* empty */
+	| GROUP BY groupby_list
+		{
+
+	}
+	;
 
 load_data:
 		LOAD DATA INFILE SSS INTO TABLE ID SEMICOLON

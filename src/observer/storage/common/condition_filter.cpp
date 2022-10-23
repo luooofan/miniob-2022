@@ -67,11 +67,15 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
   AttrType type_left = UNDEFINED;
   AttrType type_right = UNDEFINED;
 
-  if (1 == condition.left_is_attr) {
+  assert(ExpType::UNARY == condition.left->type);
+  assert(ExpType::UNARY == condition.right->type);
+  UnaryExpr *left_expr = condition.left->uexp;
+  UnaryExpr *right_expr = condition.right->uexp;
+  if (left_expr->is_attr) {
     left.is_attr = true;
-    const FieldMeta *field_left = table_meta.field(condition.left_attr.attribute_name);
+    const FieldMeta *field_left = table_meta.field(left_expr->attr.attribute_name);
     if (nullptr == field_left) {
-      LOG_WARN("No such field in condition. %s.%s", table.name(), condition.left_attr.attribute_name);
+      LOG_WARN("No such field in condition. %s.%s", table.name(), left_expr->attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
     }
     left.attr_length = field_left->len();
@@ -82,18 +86,18 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     type_left = field_left->type();
   } else {
     left.is_attr = false;
-    left.value = condition.left_value.data;  // 校验type 或者转换类型
-    type_left = condition.left_value.type;
+    left.value = left_expr->value.data;  // 校验type 或者转换类型
+    type_left = left_expr->value.type;
 
     left.attr_length = 0;
     left.attr_offset = 0;
   }
 
-  if (1 == condition.right_is_attr) {
+  if (right_expr->is_attr) {
     right.is_attr = true;
-    const FieldMeta *field_right = table_meta.field(condition.right_attr.attribute_name);
+    const FieldMeta *field_right = table_meta.field(right_expr->attr.attribute_name);
     if (nullptr == field_right) {
-      LOG_WARN("No such field in condition. %s.%s", table.name(), condition.right_attr.attribute_name);
+      LOG_WARN("No such field in condition. %s.%s", table.name(), right_expr->attr.attribute_name);
       return RC::SCHEMA_FIELD_MISSING;
     }
     right.attr_length = field_right->len();
@@ -103,8 +107,8 @@ RC DefaultConditionFilter::init(Table &table, const Condition &condition)
     right.value = nullptr;
   } else {
     right.is_attr = false;
-    right.value = condition.right_value.data;
-    type_right = condition.right_value.type;
+    right.value = right_expr->value.data;
+    type_right = right_expr->value.type;
 
     right.attr_length = 0;
     right.attr_offset = 0;

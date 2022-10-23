@@ -58,68 +58,95 @@ enum yytokentype {
   JOIN = 265,
   SELECT = 266,
   DESC = 267,
-  SHOW = 268,
-  SYNC = 269,
-  INSERT = 270,
-  DELETE = 271,
-  UPDATE = 272,
-  LBRACE = 273,
-  RBRACE = 274,
-  COMMA = 275,
-  TRX_BEGIN = 276,
-  TRX_COMMIT = 277,
-  TRX_ROLLBACK = 278,
-  INT_T = 279,
-  STRING_T = 280,
-  DATE_T = 281,
-  FLOAT_T = 282,
-  HELP = 283,
-  EXIT = 284,
-  DOT = 285,
-  INTO = 286,
-  VALUES = 287,
-  FROM = 288,
-  WHERE = 289,
-  AND = 290,
-  SET = 291,
-  ON = 292,
-  LOAD = 293,
-  DATA = 294,
-  INFILE = 295,
-  NOT = 296,
-  LIKE = 297,
-  UNIQUE = 298,
-  EQ = 299,
-  LT = 300,
-  GT = 301,
-  LE = 302,
-  GE = 303,
-  NE = 304,
-  NUMBER = 305,
-  FLOAT = 306,
-  ID = 307,
-  PATH = 308,
-  SSS = 309,
-  STAR = 310,
-  STRING_V = 311,
-  DATE_STR = 312
+  ASC = 268,
+  SHOW = 269,
+  SYNC = 270,
+  INSERT = 271,
+  DELETE = 272,
+  UPDATE = 273,
+  LBRACE = 274,
+  RBRACE = 275,
+  COMMA = 276,
+  TRX_BEGIN = 277,
+  TRX_COMMIT = 278,
+  TRX_ROLLBACK = 279,
+  INT_T = 280,
+  STRING_T = 281,
+  DATE_T = 282,
+  FLOAT_T = 283,
+  ORDER = 284,
+  GROUP = 285,
+  BY = 286,
+  HAVING = 287,
+  AGGR_MAX = 288,
+  AGGR_MIN = 289,
+  AGGR_SUM = 290,
+  AGGR_AVG = 291,
+  AGGR_COUNT = 292,
+  HELP = 293,
+  EXIT = 294,
+  DOT = 295,
+  INTO = 296,
+  VALUES = 297,
+  FROM = 298,
+  WHERE = 299,
+  AND = 300,
+  SET = 301,
+  ON = 302,
+  LOAD = 303,
+  DATA = 304,
+  INFILE = 305,
+  NOT = 306,
+  LIKE = 307,
+  UNIQUE = 308,
+  ADD = 309,
+  SUB = 310,
+  MUL = 311,
+  DIV = 312,
+  IS = 313,
+  NULL_VALUE = 314,
+  NULLABLE = 315,
+  EQ = 316,
+  LT = 317,
+  GT = 318,
+  LE = 319,
+  GE = 320,
+  NE = 321,
+  LENGTH = 322,
+  ROUND = 323,
+  DATE_FORMAT = 324,
+  NUMBER = 325,
+  FLOAT = 326,
+  ID = 327,
+  PATH = 328,
+  SSS = 329,
+  STAR = 330,
+  STRING_V = 331,
+  DATE_STR = 332
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 122 "yacc_sql.y"
+#line 157 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
+  struct _Condition *having1;
   struct _Value *value1;
+  struct _UnaryExpr *uexp1;
+  struct _Expr *exp1;
+  struct _Expr *exp2;
+  struct _Expr *exp3;
+  struct _Expr *exp4;
+  struct _Expr *exp5;
   char *string;
   int number;
   float floats;
   char *position;
 
-#line 125 "yacc_sql.tab.h"
+#line 152 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1
