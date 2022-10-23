@@ -74,8 +74,8 @@ const TupleCell TupleCell::sub(const TupleCell &left, const TupleCell &right)
     float *result_data = new float(*tmp_left - *tmp_right);
     result_cell.set_data((char *)result_data);
     result_cell.set_type(FLOATS);
-    delete tmp_left;
-    delete tmp_right;
+    free(tmp_left);
+    free(tmp_right);
   }
   return result_cell;
 }
@@ -100,8 +100,8 @@ const TupleCell TupleCell::mul(const TupleCell &left, const TupleCell &right)
     float *result_data = new float(*tmp_left * *tmp_right);
     result_cell.set_data((char *)result_data);
     result_cell.set_type(FLOATS);
-    delete tmp_left;
-    delete tmp_right;
+    free(tmp_left);
+    free(tmp_right);
   }
   return result_cell;
 }
@@ -126,8 +126,8 @@ const TupleCell TupleCell::div(const TupleCell &left, const TupleCell &right)
     result_cell.set_type(FLOATS);
     result_cell.set_data((char *)result_data);
   }
-  delete tmp_left;
-  delete tmp_right;
+  free(tmp_left);
+  free(tmp_right);
   return result_cell;
 }
 
@@ -151,8 +151,8 @@ const TupleCell TupleCell::add(const TupleCell &left, const TupleCell &right)
     float *result_data = new float(*tmp_left + *tmp_right);
     result_cell.set_data((char *)result_data);
     result_cell.set_type(FLOATS);
-    delete tmp_left;
-    delete tmp_right;
+    free(tmp_left);
+    free(tmp_right);
   }
   return result_cell;
 }
@@ -186,9 +186,9 @@ int TupleCell::compare(const TupleCell &other) const
   float *tmp_right_float = nullptr;
   DEFER([&]() {
     if (tmp_left_float)
-      delete tmp_left_float;
+      free(tmp_left_float);
     if (tmp_right_float)
-      delete tmp_right_float;
+      free(tmp_right_float);
   });
   tmp_left_float = (float *)cast_to[this->attr_type_][FLOATS](this->data_);
   assert(nullptr != tmp_left_float);

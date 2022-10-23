@@ -118,6 +118,8 @@ private:
 
 private:
   RC init_record_handler(const char *base_dir);
+  bool record_field_is_null(const char *record, int idx) const;
+  RC change_record_value(char *&record, int idx, const Value &value) const;
   RC make_record(int value_num, const Value *values, char *&record_out);
 
 public:

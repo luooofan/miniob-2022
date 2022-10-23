@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "common/log/log.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
+#include "util/typecast.h"
 
 // UpdateStmt::UpdateStmt(Table *table, Value *values, int value_amount)
 //     : table_(table), values_(values), value_amount_(value_amount)
@@ -53,6 +54,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   const TableMeta &table_meta = table->table_meta();
   const int sys_field_num = table_meta.sys_field_num();
   const int user_field_num = table_meta.field_num() - sys_field_num;
+
   for (int i = 0; i < user_field_num; i++) {
     const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
     const char *field_name = field_meta->name();
@@ -60,9 +62,25 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
       continue;
     }
 
+    field_exist = true;
+
     const AttrType field_type = field_meta->type();
     const AttrType value_type = value.type;
-    if (field_type != value_type) {  // TODO try to convert the value type to field type
+
+    // check null first
+    if (AttrType::NULLS == value_type) {
+      if (!field_meta->nullable()) {
+        LOG_WARN("field type mismatch. can not be null. table=%s, field=%s, field type=%d, value_type=%d",
+            table_name,
+            field_meta->name(),
+            field_type,
+            value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;  // pass check
+    }
+    // check typecast
+    if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
       LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
           table_name,
           field_meta->name(),
@@ -71,9 +89,9 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
       return RC::SCHEMA_FIELD_TYPE_MISMATCH;
     }
 
-    field_exist = true;
     break;
   }
+
   if (!field_exist) {
     LOG_WARN("Field %s.%s is not exist", table_name, attr_name);
     return RC::SCHEMA_FIELD_NOT_EXIST;

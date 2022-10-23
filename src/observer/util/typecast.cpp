@@ -1,8 +1,6 @@
 #include "util/typecast.h"
-#include <cstdlib>
-#include <cstring>
+#include <cassert>
 
-// if you use it, you own a pointer or only get a nullptr
 cast_func_ptr cast_to[AttrType::FLOATS + 1][AttrType::FLOATS + 1] = {{
                                                                          // UNDEFINED
                                                                          not_support,
@@ -58,68 +56,96 @@ cast_func_ptr cast_to[AttrType::FLOATS + 1][AttrType::FLOATS + 1] = {{
         float_to_float,
     }};
 
-void *identity(void *src)
+bool type_cast_not_support(AttrType i, AttrType j)
 {
-  return src;
+  return cast_to[i][j] == not_support;
 }
+
 void *not_support(void *src)
 {
   return nullptr;
 }
+
 void *int_to_int(void *src)
 {
-  return new int(*(int *)src);
+  assert(nullptr != src);
+  void *res = malloc(sizeof(int));
+  memcpy(res, (int *)src, sizeof(int));
+  return res;
 }
+
 void *int_to_float(void *src)
 {
-  return new float(*(int *)src);
+  assert(nullptr != src);
+  void *res = malloc(sizeof(float));
+  float tmp = *(int *)src;
+  memcpy(res, &tmp, sizeof(float));
+  return res;
 }
 
 void *int_to_char(void *src)
 {
-  int &s = *(int *)src;
-  char *res = new char[11];
-  sprintf(res, "%d", s);
-  return res;
+  std::string str = std::to_string(*(int *)src);
+  return strdup(str.c_str());
 }
 
 void *float_to_int(void *src)
 {
-  float &s = *(float *)src;
-  return new int(s + 0.5);
+  assert(nullptr != src);
+  void *res = malloc(sizeof(int));
+  int tmp = *(float *)src + 0.5;
+  memcpy(res, &tmp, sizeof(int));
+  return res;
 }
 
 void *float_to_char(void *src)
 {
-  float &s = *(float *)src;
-  char *res = new char[33];
-  memset(res, 0, 33 * sizeof(char));
-  // sprintf(res, "%f", s);
-  gcvt(s, 7, res);
-  return res;
+  std::string str = double2string(*(float *)src);
+  return strdup(str.c_str());
 }
 
 void *float_to_float(void *src)
 {
-  return new float(*(float *)src);
+  assert(nullptr != src);
+  void *res = malloc(sizeof(float));
+  memcpy(res, (float *)src, sizeof(float));
+  return res;
 }
 
 // make sure char* end with \0
 void *char_to_int(void *src)
 {
-  char *s = (char *)src;
-  int *res = new int(atoi(s));
+  assert(nullptr != src);
+  void *res = malloc(sizeof(int));
+  int tmp = atoi((char *)src);
+  memcpy(res, &tmp, sizeof(int));
   return res;
 }
 
 void *char_to_float(void *src)
 {
-  char *s = (char *)src;
-  float *res = new float(atof(s));
+  assert(nullptr != src);
+  void *res = malloc(sizeof(float));
+  float tmp = atof((char *)src);
+  memcpy(res, &tmp, sizeof(float));
   return res;
 }
 
 void *char_to_char(void *src)
 {
-  return new char[strlen((char *)src)];
+  return strdup((char *)src);
+}
+
+RC cast_value(const Value &value, FieldMeta *field, Value &ret)
+{
+  // do typecast
+  void *tmp_data = nullptr;
+  tmp_data = cast_to[value.type][field->type()](value.data);  // nullptr or new memory
+  if (nullptr == tmp_data) {
+    LOG_ERROR("Invalid value type. field name=%s, type=%d, but given=%d", field->name(), field->type(), value.type);
+    return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+  }
+  ret.type = value.type;
+  ret.data = tmp_data;
+  return RC::SUCCESS;
 }
