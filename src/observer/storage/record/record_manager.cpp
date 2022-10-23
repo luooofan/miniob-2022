@@ -233,7 +233,7 @@ RC RecordPageHandler::update_record(const Record *rec)
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
   if (!bitmap.get_bit(rec->rid().slot_num)) {
     LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.", rec->rid().slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
+    return RC::RECORD_RECORD_NOT_EXIST_2;
   } else {
     char *record_data = get_record_data(rec->rid().slot_num);
     memcpy(record_data, rec->data(), page_header_->record_real_size);
@@ -286,7 +286,7 @@ RC RecordPageHandler::delete_record(const RID *rid)
     return RC::SUCCESS;
   } else {
     LOG_ERROR("Invalid slot_num %d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
+    return RC::RECORD_RECORD_NOT_EXIST_3;
   }
 }
 
@@ -300,7 +300,7 @@ RC RecordPageHandler::get_record(const RID *rid, Record *rec)
   Bitmap bitmap(bitmap_, page_header_->record_capacity);
   if (!bitmap.get_bit(rid->slot_num)) {
     LOG_ERROR("Invalid slot_num:%d, slot is empty, page_num %d.", rid->slot_num, frame_->page_num());
-    return RC::RECORD_RECORD_NOT_EXIST;
+    return RC::RECORD_RECORD_NOT_EXIST_4;
   }
 
   rec->set_rid(*rid);

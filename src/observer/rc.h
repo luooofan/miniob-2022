@@ -223,7 +223,11 @@ enum RC {
   NOTADB,           /* File opened that is not a database file */
   FILE_ERROR,       /* File error */
   LOGBUF,           /* clog buffer error */
-  NOTICE = 100,     /* Notifications from log() */
+  RECORD_RECORD_NOT_EXIST_4,
+  RECORD_RECORD_NOT_EXIST_3,
+  RECORD_RECORD_NOT_EXIST_2,
+  RECORD_RECORD_NOT_EXIST_1,
+  NOTICE = 100, /* Notifications from log() */
 
   /* buffer pool part */
   BUFFERPOOL_EXIST = (BUFFERPOOL | (RCBufferPool::BP_EXIST << 8)),

@@ -1701,7 +1701,7 @@ RC BplusTreeHandler::delete_entry_internal(Frame *leaf_frame, const char *key)
   if (remove_count == 0) {
     LOG_TRACE("no data to remove");
     disk_buffer_pool_->unpin_page(leaf_frame);
-    return RC::RECORD_RECORD_NOT_EXIST;
+    return RC::RECORD_RECORD_NOT_EXIST_1;
   }
   // leaf_index_node.validate(key_comparator_, disk_buffer_pool_, file_id_);
 
