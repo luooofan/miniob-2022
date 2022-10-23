@@ -314,7 +314,10 @@ RC Table::insert_record(Trx *trx, Record *record)
 
   rc = insert_entry_of_indexes(record->data(), record->rid());
   if (rc != RC::SUCCESS) {
-    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
+    RC rc2 = RC::SUCCESS;
+    if (rc != RC::RECORD_DUPLICATE_KEY) {
+      rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
+    }
     if (rc2 != RC::SUCCESS) {
       LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
           name(),
@@ -413,21 +416,24 @@ RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
     record.set_data(record_data);
     rc = insert_record(trx, &record);
 
+    records_done.push_back(record);  // here or earlier
+    // rollback_insert(trx, record.rid()); TODO rollback
     // when one record insert failed, delete records inserted just now
     if (RC::SUCCESS != rc) {
       LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
 
+      RC rc2 = RC::SUCCESS;
       for (size_t j = 0; j < records_done.size(); j++) {
-        rc = delete_record(trx, &records_done[j]);
-        if (RC::SUCCESS != rc) {
+        // rollback_insert(trx, records_done[j].rid());
+        rc2 = delete_record(nullptr, &records_done[j]);
+        if (RC::SUCCESS != rc2) {
           LOG_ERROR("Failed to rollback record [%p]. rc=%d:%s", records_done[j], rc, strrc(rc));
         }
       }
+      break;
     }
-
-    records_done.push_back(record);
-    delete[] record_data;
   }
+  // delete[] record_data;
   records_done.clear();
   return rc;
 }
