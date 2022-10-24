@@ -122,6 +122,7 @@ ParserContext *get_context(yyscan_t scanner)
         AGGR_AVG
         AGGR_COUNT
         HELP
+        TEXT
         EXIT
         DOT //QUOTE
         INTO
@@ -340,6 +341,13 @@ attr_def:
 			// strcpy(CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].name, CONTEXT->id); 
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].type = $2;  
 			// CONTEXT->ssql->sstr.create_table.attributes[CONTEXT->value_length].length = $4;
+			CONTEXT->value_length++;
+		}
+    | ID_get TEXT
+    {
+			AttrInfo attribute;
+			attr_info_init(&attribute, CONTEXT->id, CHARS, 4096, FALSE);
+			create_table_append_attribute(&CONTEXT->ssql->sstr.create_table, &attribute);
 			CONTEXT->value_length++;
 		}
     |ID_get type
