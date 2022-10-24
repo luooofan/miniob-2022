@@ -77,63 +77,64 @@ enum yytokentype {
   ORDER = 284,
   GROUP = 285,
   BY = 286,
-  HAVING = 287,
-  AGGR_MAX = 288,
-  AGGR_MIN = 289,
-  AGGR_SUM = 290,
-  AGGR_AVG = 291,
-  AGGR_COUNT = 292,
-  HELP = 293,
-  EXIT = 294,
-  DOT = 295,
-  INTO = 296,
-  VALUES = 297,
-  FROM = 298,
-  WHERE = 299,
-  AND = 300,
-  SET = 301,
-  ON = 302,
-  LOAD = 303,
-  DATA = 304,
-  INFILE = 305,
-  NOT = 306,
-  LIKE = 307,
-  UNIQUE = 308,
-  ADD = 309,
-  SUB = 310,
-  MUL = 311,
-  DIV = 312,
-  IS = 313,
-  NULL_VALUE = 314,
-  NULLABLE = 315,
-  EQ = 316,
-  LT = 317,
-  GT = 318,
-  LE = 319,
-  GE = 320,
-  NE = 321,
-  LENGTH = 322,
-  ROUND = 323,
-  DATE_FORMAT = 324,
-  NUMBER = 325,
-  FLOAT = 326,
-  ID = 327,
-  PATH = 328,
-  SSS = 329,
-  STAR = 330,
-  STRING_V = 331,
-  DATE_STR = 332
+  IN = 287,
+  EXISTS = 288,
+  HAVING = 289,
+  AGGR_MAX = 290,
+  AGGR_MIN = 291,
+  AGGR_SUM = 292,
+  AGGR_AVG = 293,
+  AGGR_COUNT = 294,
+  HELP = 295,
+  EXIT = 296,
+  DOT = 297,
+  INTO = 298,
+  VALUES = 299,
+  FROM = 300,
+  WHERE = 301,
+  AND = 302,
+  SET = 303,
+  ON = 304,
+  LOAD = 305,
+  DATA = 306,
+  INFILE = 307,
+  NOT = 308,
+  LIKE = 309,
+  UNIQUE = 310,
+  ADD = 311,
+  SUB = 312,
+  MUL = 313,
+  DIV = 314,
+  IS = 315,
+  NULL_VALUE = 316,
+  NULLABLE = 317,
+  EQ = 318,
+  LT = 319,
+  GT = 320,
+  LE = 321,
+  GE = 322,
+  NE = 323,
+  LENGTH = 324,
+  ROUND = 325,
+  DATE_FORMAT = 326,
+  NUMBER = 327,
+  FLOAT = 328,
+  ID = 329,
+  PATH = 330,
+  SSS = 331,
+  STAR = 332,
+  STRING_V = 333,
+  DATE_STR = 334
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 157 "yacc_sql.y"
+#line 168 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
-  struct _Condition *having1;
   struct _Value *value1;
   struct _UnaryExpr *uexp1;
   struct _Expr *exp1;
@@ -141,12 +142,15 @@ union YYSTYPE {
   struct _Expr *exp3;
   struct _Expr *exp4;
   struct _Expr *exp5;
+  struct _Expr *exp6;
+  struct _FromInfo *from_info;
   char *string;
   int number;
   float floats;
   char *position;
+  int cur_len;
 
-#line 152 "yacc_sql.tab.h"
+#line 156 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1

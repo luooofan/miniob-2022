@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/parser/parse.h"
+#include "net/connection_context.h"
 #include "rc.h"
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
@@ -195,7 +196,9 @@ void condition_init_with_null(Condition *condition, CompOp op, Expr *left_expr)
 }
 void condition_destroy(Condition *condition)
 {
-  expr_destroy(condition->left);
+  if (NULL != condition->left) {
+    expr_destroy(condition->left);
+  }
   if (NULL != condition->right) {
     expr_destroy(condition->right);
   }
@@ -382,11 +385,19 @@ void attr_info_destroy(AttrInfo *attr_info)
 
 void selects_init(Selects *selects, ...);
 
-void selects_append_projects(Selects *selects, ProjectCol *project_col)
+void selects_append_project(Selects *selects, ProjectCol *project_col)
 {
   selects->projects[selects->project_num++] = *project_col;
 }
 
+void selects_append_projects(Selects *selects, ProjectCol project_col[], size_t project_num)
+{
+  assert(project_num <= sizeof(selects->projects) / sizeof(selects->projects[0]));
+  for (size_t i = 0; i < project_num; i++) {
+    selects->projects[i] = project_col[i];
+  }
+  selects->project_num = project_num;
+}
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 {
   selects->attributes[selects->attr_num++] = *rel_attr;
@@ -394,6 +405,15 @@ void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 void selects_append_relation(Selects *selects, const char *relation_name)
 {
   selects->relations[selects->relation_num++] = strdup(relation_name);
+}
+
+void selects_append_froms(Selects *selects, Relation froms[], size_t from_num)
+{
+  assert(from_num <= sizeof(selects->relations) / sizeof(selects->relations[0]));
+  for (size_t i = 0; i < from_num; i++) {
+    selects->relations[i] = strdup(froms[i]);
+  }
+  selects->relation_num = from_num;
 }
 
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)

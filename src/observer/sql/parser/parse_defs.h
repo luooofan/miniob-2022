@@ -112,6 +112,7 @@ typedef struct _OrderBy {
 } OrderBy;
 
 typedef RelAttr GroupBy;
+typedef char *Relation;
 
 // struct of select
 typedef struct {
@@ -301,9 +302,11 @@ void attr_info_init(AttrInfo *attr_info, const char *name, AttrType type, size_t
 void attr_info_destroy(AttrInfo *attr_info);
 
 void selects_init(Selects *selects, ...);
-void selects_append_projects(Selects *selects, ProjectCol *project_col);
+void selects_append_project(Selects *selects, ProjectCol *project_col);
+void selects_append_projects(Selects *selects, ProjectCol project_col[], size_t project_num);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
 void selects_append_relation(Selects *selects, const char *relation_name);
+void selects_append_froms(Selects *selects, Relation froms[], size_t from_num);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num);
 void selects_append_groupbys(Selects *selects, GroupBy groupbys[], size_t groupby_num);
