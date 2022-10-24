@@ -16,6 +16,7 @@ See the Mulan PSL v2 for more details. */
 #define __OBSERVER_SQL_EXECUTE_STAGE_H__
 
 #include "common/seda/stage.h"
+#include "sql/operator/project_operator.h"
 #include "sql/parser/parse.h"
 #include "sql/operator/operator.h"
 #include "rc.h"
@@ -54,7 +55,10 @@ protected:
   RC do_begin(SQLStageEvent *sql_event);
   RC do_commit(SQLStageEvent *sql_event);
   RC do_clog_sync(SQLStageEvent *sql_event);
-  RC do_join(SelectStmt *select_stmt, Operator **result_op, std::vector<Operator *> &delete_opers);
+  static RC gen_join_operator(
+      const SelectStmt *select_stmt, Operator *&result_op, std::vector<Operator *> &delete_opers);
+  static RC gen_physical_plan(
+      const SelectStmt *select_stmt, ProjectOperator *&op, std::vector<Operator *> &delete_opers);
 
 protected:
 private:
