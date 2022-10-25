@@ -293,6 +293,8 @@ RC Expression::create_expression(const Expr *expr, const std::unordered_map<std:
     return AggrFuncExpression::create_expression(expr, table_map, tables, res_expr);
   } else if (SUBQUERY == expr->type) {
     return SubQueryExpression::create_expression(expr, table_map, tables, res_expr, comp, db);
+  } else if (SUBLIST == expr->type) {
+    return ListExpression::create_expression(expr, table_map, tables, res_expr);
   }
   return RC::UNIMPLENMENT;
 }
@@ -419,5 +421,17 @@ RC SubQueryExpression::create_expression(const Expr *expr, const std::unordered_
     }
   }
   res_expr = sub_expr;
+  return RC::SUCCESS;
+}
+
+RC ListExpression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+    const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp, Db *db)
+{
+  assert(SUBLIST == expr->type);
+  ListExpr *lexpr = expr->lexp;
+  ListExpression *list_expr = new ListExpression();
+  list_expr->set_tuple_cells_length(lexpr->list_length);
+  list_expr->set_tuple_cells(lexpr->list, lexpr->list_length);
+  res_expr = list_expr;
   return RC::SUCCESS;
 }

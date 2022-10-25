@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include <ostream>
 #include <string.h>
 #include <unordered_map>
+#include <vector>
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/common/field.h"
@@ -36,6 +37,7 @@ enum class ExprType {
   BINARY,
   AGGRFUNCTION,
   SUBQUERYTYPE,
+  SUBLISTTYPE,
 };
 
 class Expression {
@@ -362,4 +364,46 @@ public:
 private:
   SelectStmt *sub_stmt_ = nullptr;
   ProjectOperator *sub_top_oper_ = nullptr;
+};
+
+class ListExpression : public Expression {
+public:
+  ListExpression() = default;
+
+  virtual ~ListExpression() = default;
+
+  RC get_value(const Tuple &tuple, TupleCell &cell) const override{};
+  ExprType type() const override
+  {
+    return ExprType::SUBLISTTYPE;
+  }
+
+  // void get_tuple_cell(TupleCell &cell) const
+  // {
+  //   cell = tuple_cell_;
+  // }
+  void set_tuple_cells(Value values[], int value_length)
+  {
+    TupleCell tuple_cell;
+    for (int i = 0; i < value_length; i++) {
+      tuple_cell.set_type(values[i].type);
+      tuple_cell.set_length(strlen((const char *)values[i].data));
+      tuple_cell.set_data((char *)values[i].data);
+      tuple_cells_.emplace_back(tuple_cell);
+    }
+  }
+
+  void set_tuple_cells_length(int value_length)
+  {
+    tuple_cells_length_ = value_length;
+  }
+
+  void to_string(std::ostream &os) const override{};
+
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
+
+private:
+  int tuple_cells_length_;
+  std::vector<TupleCell> tuple_cells_;
 };

@@ -204,6 +204,20 @@ void condition_destroy(Condition *condition)
   }
 }
 
+void list_expr_init(ListExpr *expr, Value values[], size_t value_num)
+{
+  expr->list_length = value_num;
+  for (size_t i = 0; i < value_num; i++) {
+    expr->list[i] = values[i];
+  }
+}
+
+void list_expr_destory(ListExpr *expr)
+{
+  // TODO
+  return;
+}
+
 void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
 {
   s_expr->sub_select = sub_select;
@@ -228,6 +242,18 @@ void expr_print(Expr *expr, int indent)
       break;
   }
 }
+
+void expr_init_list(Expr *expr, ListExpr *l_expr)
+{
+  expr->type = ExpType::SUBLIST;
+  expr->lexp = l_expr;
+  expr->sexp = NULL;
+  expr->afexp = NULL;
+  expr->fexp = NULL;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->with_brace = 0;
+}
 void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
 {
   expr->type = ExpType::SUBQUERY;
@@ -236,6 +262,7 @@ void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
   expr->fexp = NULL;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
@@ -246,6 +273,7 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
   expr->bexp = NULL;
   expr->uexp = NULL;
   expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
@@ -256,6 +284,7 @@ void expr_init_func(Expr *expr, FuncExpr *f_expr)
   expr->bexp = NULL;
   expr->uexp = NULL;
   expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
@@ -266,6 +295,7 @@ void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
   expr->fexp = NULL;
   expr->afexp = NULL;
   expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
@@ -276,6 +306,7 @@ void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
   expr->fexp = NULL;
   expr->afexp = NULL;
   expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)

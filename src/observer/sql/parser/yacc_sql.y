@@ -176,6 +176,7 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Expr* exp4;
   struct _Expr* exp5;
   struct _Expr* exp6;
+  struct _Expr* exp7;
   struct _FromInfo* from_info;
   char *string;
   int number;
@@ -205,6 +206,7 @@ ParserContext *get_context(yyscan_t scanner)
 %type <exp4> func_expr;
 %type <exp5> aggr_func_expr;
 %type <exp6> sub_select;
+%type <exp7> sub_select_list;
 %type <cur_len> select_attr;
 %type <cur_len> attr_list;
 %type <from_info> from;
@@ -218,6 +220,7 @@ ParserContext *get_context(yyscan_t scanner)
 %type <cur_len> having_condition_list;
 %type <cur_len> opt_order_by;
 %type <cur_len> sort_list;
+%type <cur_len> value_list;
 %type <comp_op> comOp;
 
 %%
@@ -451,10 +454,25 @@ row_value:
       CONTEXT->value_length=0;
 		}
 
+sub_select_list:
+    LBRACE value value_list RBRACE
+    {
+      Expr * expr = malloc(sizeof(Expr));
+      ListExpr * lexp = malloc(sizeof(ListExpr));
+      int v_length = $3 + 1;
+      list_expr_init(lexp, &CONTEXT->values[CONTEXT->value_length - v_length], v_length);
+      expr_init_list(expr, lexp);
+      $$ = expr;
+    }
+    ;
+
 value_list:
-    /* empty */
+    /* empty */{
+        $$ = 0;
+    }
     | COMMA value value_list  { 
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
+        $$ = $3 + 1;
 	  }
     ;
 
@@ -619,8 +637,10 @@ unary_expr:
     | sub_select {
        $$ = $1;
     }
+    | sub_select_list{
+      $$ = $1;
+    }
     ;
-
 aggr_func_type:
     AGGR_MAX {
       CONTEXT->aggrfunctype = MAX;

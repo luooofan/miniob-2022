@@ -143,6 +143,7 @@ union YYSTYPE {
   struct _Expr *exp4;
   struct _Expr *exp5;
   struct _Expr *exp6;
+  struct _Expr *exp7;
   struct _FromInfo *from_info;
   char *string;
   int number;
@@ -151,7 +152,7 @@ union YYSTYPE {
   int cur_len;
   int comp_op;
 
-#line 157 "yacc_sql.tab.h"
+#line 158 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1
