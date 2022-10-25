@@ -150,6 +150,7 @@ union YYSTYPE {
   float floats;
   char *position;
   int cur_len;
+  int comp_op;
 
 #line 157 "yacc_sql.tab.h"
 };

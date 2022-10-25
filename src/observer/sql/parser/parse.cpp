@@ -204,6 +204,17 @@ void condition_destroy(Condition *condition)
   }
 }
 
+void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
+{
+  s_expr->sub_select = sub_select;
+}
+
+void sub_query_expr_destory(SubQueryExpr *s_expr)
+{
+  // TODO
+  return;
+}
+
 void expr_print(Expr *expr, int indent)
 {
   switch (expr->type) {
@@ -217,6 +228,16 @@ void expr_print(Expr *expr, int indent)
       break;
   }
 }
+void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
+{
+  expr->type = ExpType::SUBQUERY;
+  expr->sexp = s_expr;
+  expr->afexp = NULL;
+  expr->fexp = NULL;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->with_brace = 0;
+}
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
 {
   expr->type = ExpType::AGGRFUNC;
@@ -224,6 +245,7 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
   expr->fexp = NULL;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->sexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
@@ -233,6 +255,7 @@ void expr_init_func(Expr *expr, FuncExpr *f_expr)
   expr->fexp = f_expr;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->sexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
@@ -242,6 +265,7 @@ void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
   expr->bexp = NULL;
   expr->fexp = NULL;
   expr->afexp = NULL;
+  expr->sexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
@@ -251,6 +275,7 @@ void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
   expr->uexp = NULL;
   expr->fexp = NULL;
   expr->afexp = NULL;
+  expr->sexp = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
