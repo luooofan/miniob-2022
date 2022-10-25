@@ -155,6 +155,9 @@ public:
     if (is_null()) {
       return other.is_null();
     }
+    if (other.is_null()) {
+      return false;
+    }
     return 0 == compare(other);
   }
 
