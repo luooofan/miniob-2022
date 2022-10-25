@@ -50,7 +50,7 @@ typedef enum {
 
 typedef enum { ADD_OP, SUB_OP, MUL_OP, DIV_OP, EXP_OP_NUM } ExpOp;
 typedef enum { MAX, MIN, SUM, AVG, COUNT, AGGR_FUNC_TYPE_NUM } AggrFuncType;
-typedef enum { UNARY, BINARY, FUNC, AGGRFUNC, SUBQUERY, EXP_TYPE_NUM } ExpType;
+typedef enum { UNARY, BINARY, FUNC, AGGRFUNC, SUBQUERY, SUBLIST, EXP_TYPE_NUM } ExpType;
 typedef enum { FUNC_LENGTH, FUNC_ROUND, FUNC_DATE_FORMAT, FUNC_TYPE_NUM } FuncType;
 typedef enum { SUB_IN, SUB_NOT_IN, SUB_EXISTS, SUB_NOT_EXISTS, SUB_NORMAL, SUB_TYPE_NUM } SubQueryType;
 
@@ -72,6 +72,7 @@ typedef struct _BinaryExpr BinaryExpr;
 typedef struct _FuncExpr FuncExpr;
 typedef struct _AggrFuncExpr AggrFuncExpr;
 typedef struct _SubQueryExpr SubQueryExpr;
+typedef struct _ListExpr ListExpr;
 
 typedef struct _Expr {
   ExpType type;
@@ -80,6 +81,7 @@ typedef struct _Expr {
   FuncExpr *fexp;
   AggrFuncExpr *afexp;
   SubQueryExpr *sexp;
+  ListExpr *lexp;
   int with_brace;
 } Expr;
 
@@ -144,6 +146,12 @@ typedef struct {
 typedef struct _SubQueryExpr {
   Selects *sub_select;
 } SubQueryExpr;
+
+// sub_select list
+typedef struct _ListExpr {
+  int list_length;
+  Value list[MAX_NUM];
+} ListExpr;
 
 // struct of insert
 typedef struct {
@@ -265,6 +273,9 @@ extern "C" {
 void attr_print(RelAttr *attr, int indent);
 void value_print(Value *value, int indent);
 
+void list_expr_init(ListExpr *expr, Value values[], size_t value_num);
+void list_expr_destory(ListExpr *expr);
+
 void sub_query_expr_init(SubQueryExpr *expr, Selects *sub_select);
 void sub_query_expr_destory(SubQueryExpr *expr);
 
@@ -287,6 +298,7 @@ void binary_expr_set_minus(BinaryExpr *expr);
 void binary_expr_destroy(BinaryExpr *expr);
 
 void expr_print(Expr *expr, int indent);
+void expr_init_list(Expr *expr, ListExpr *l_expr);
 void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr);
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr);
 void expr_init_func(Expr *expr, FuncExpr *f_expr);
