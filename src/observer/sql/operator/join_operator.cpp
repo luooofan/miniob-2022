@@ -26,7 +26,9 @@ void JoinOperator::filter_right_table()
   for (size_t i = 0; i < rht_.size(); ++i) {
     CompoundRecord temp(rht_[i]);
     tuple_.set_right_record(temp);
-    if (PredicateOperator::do_predicate(filter_units_, tuple_)) {
+    bool res = false;
+    assert(RC::SUCCESS == PredicateOperator::do_predicate(filter_units_, tuple_, res));
+    if (res) {
       filtered_rht_.emplace_back(i);
     }
   }

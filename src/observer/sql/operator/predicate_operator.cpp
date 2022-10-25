@@ -46,7 +46,17 @@ RC PredicateOperator::next()
       LOG_WARN("failed to get tuple from operator");
       break;
     }
-    if (do_predicate(*tuple)) {
+    bool res = false;
+    CompoundTuple cpd_tup(tuple, const_cast<Tuple *>(parent_tuple_));
+    if (nullptr == parent_tuple_) {
+      rc = do_predicate(*tuple, res);
+    } else {
+      rc = do_predicate(cpd_tup, res);
+    }
+    if (RC::SUCCESS != rc) {
+      return rc;
+    }
+    if (res) {
       return rc;
     }
   }
@@ -76,10 +86,11 @@ static void replace_all(std::string &str, const std::string &from, const std::st
   }
 }
 
-bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units, Tuple &tuple)
+RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units, Tuple &tuple, bool &res)
 {
   if (filter_units.empty()) {
-    return true;
+    res = true;
+    return RC::SUCCESS;
   }
 
   // the relation between two filter_units is AND
@@ -90,22 +101,116 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
     TupleCell left_cell;
     TupleCell right_cell;
 
-    left_expr->get_value(tuple, left_cell);
-    right_expr->get_value(tuple, right_cell);
+    // 0. for [not] exist
+    if (CompOp::EXISTS_OP == comp || CompOp::NOT_EXISTS == comp) {
+      assert(nullptr == left_expr);
+      assert(ExprType::SUBQUERYTYPE == right_expr->type());
+      auto sub_query_expr = (const SubQueryExpression *)right_expr;
+      sub_query_expr->open_sub_query();
+      // TODO compound with parent tuple
+      RC tmp_rc = sub_query_expr->get_value(tuple, right_cell);
+      sub_query_expr->close_sub_query();
+      res = CompOp::EXISTS_OP == comp ? (RC::SUCCESS == tmp_rc) : (RC::RECORD_EOF == tmp_rc);
+      return RC::SUCCESS;
+    }
+
+    // 1. for [not] in
+    if (CompOp::IN_OP == comp || CompOp::NOT_IN == comp) {
+      left_expr->get_value(tuple, left_cell);
+      std::vector<TupleCell> right_cells;
+      right_cells.emplace_back(TupleCell());
+      if (ExprType::SUBQUERYTYPE == right_expr->type()) {
+        auto sub_query_expr = (const SubQueryExpression *)right_expr;
+        sub_query_expr->open_sub_query();
+        RC rc = RC::SUCCESS;
+        // TODO compound with parent tuple
+        while (RC::SUCCESS == (rc = sub_query_expr->get_value(tuple, right_cells.back()))) {
+          right_cells.emplace_back(TupleCell());
+        }
+        assert(RC::RECORD_EOF == rc);
+        right_cells.pop_back();  // pop null cell for record_eof
+        sub_query_expr->close_sub_query();
+      } else {
+        // TODO list expr
+      }
+
+      auto has_null = [](const std::vector<TupleCell> &cells) {
+        for (auto &cell : cells) {
+          if (cell.is_null()) {
+            return true;
+          }
+        }
+        return false;
+      };
+      res = CompOp::IN_OP == comp ? left_cell.in_cells(right_cells)
+                                  : (has_null(right_cells) ? false : left_cell.not_in_cells(right_cells));
+      return RC::SUCCESS;
+    }
+
+    auto get_cell_for_sub_query = [](const SubQueryExpression *expr, const Tuple &tuple, TupleCell &cell) {
+      expr->open_sub_query();
+      RC rc = expr->get_value(tuple, cell);
+      if (RC::RECORD_EOF == rc) {
+        // e.g. a = select a  -> a = null
+        cell.set_null();
+      } else if (RC::SUCCESS == rc) {
+        TupleCell tmp_cell;
+        if (RC::SUCCESS == (rc = expr->get_value(tuple, tmp_cell))) {
+          // e.g. a = select a  -> a = (1, 2, 3)
+          // std::cout << "Should not have rows more than 1" << std::endl;
+          expr->close_sub_query();
+          return RC::INTERNAL;
+        }
+      } else {
+        expr->close_sub_query();
+        return rc;
+      }
+      expr->close_sub_query();
+      return RC::SUCCESS;
+    };
+
+    // std::cout << "DO PREDICATE: comp : " << comp << std::endl;
+
+    if (ExprType::SUBQUERYTYPE == left_expr->type()) {
+      RC rc = get_cell_for_sub_query((const SubQueryExpression *)left_expr, tuple, left_cell);
+      if (RC::SUCCESS != rc) {
+        return rc;
+      }
+    } else {
+      left_expr->get_value(tuple, left_cell);
+    }
+    // std::cout << "DO PREDICATE: get_left_cell : ";
+    // left_cell.to_string(std::cout);
+    // std::cout << std::endl;
+
+    if (ExprType::SUBQUERYTYPE == right_expr->type()) {
+      RC rc = get_cell_for_sub_query((const SubQueryExpression *)right_expr, tuple, right_cell);
+      if (RC::SUCCESS != rc) {
+        return rc;
+      }
+    } else {
+      right_expr->get_value(tuple, right_cell);
+    }
+    // std::cout << "DO PREDICATE: get_right_cell : ";
+    // right_cell.to_string(std::cout);
+    // std::cout << std::endl;
 
     // 0. for is [not] null
     if (CompOp::IS_NULL == comp) {
       assert(right_cell.is_null());
-      return left_cell.is_null();
+      res = left_cell.is_null();
+      return RC::SUCCESS;
     }
     if (CompOp::IS_NOT_NULL == comp) {
       assert(right_cell.is_null());
-      return !left_cell.is_null();
+      res = !left_cell.is_null();
+      return RC::SUCCESS;
     }
 
     // 1. check null
     if (left_cell.is_null() || right_cell.is_null()) {
-      return false;
+      res = false;
+      return RC::SUCCESS;
     }
 
     AttrType left_type = left_cell.attr_type();
@@ -121,7 +226,8 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
       bool res = std::regex_match((const char *)left_cell.data(), reg);
       // std::cout << (const char *)left_cell.data() << " " << raw_reg << " " << res << std::endl;
       if ((LIKE_OP == comp && !res) || (NOT_LIKE_OP == comp && res)) {
-        return false;
+        res = false;
+        return RC::SUCCESS;
       }
       continue;
     }
@@ -154,15 +260,17 @@ bool PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_uni
       } break;
     }
     if (!filter_result) {
-      return false;
+      res = false;
+      return RC::SUCCESS;
     }
   }
-  return true;
+  res = true;
+  return RC::SUCCESS;
 }
 
-bool PredicateOperator::do_predicate(Tuple &tuple)
+RC PredicateOperator::do_predicate(Tuple &tuple, bool &res)
 {
-  return do_predicate(filter_stmt_->filter_units(), tuple);
+  return do_predicate(filter_stmt_->filter_units(), tuple, res);
 }
 
 // int PredicateOperator::tuple_cell_num() const

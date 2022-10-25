@@ -75,7 +75,8 @@ static void wildcard_fields(Table *table, std::vector<Expression *> &projects)
   }
 }
 
-RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
+RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table *> &parent_tables,
+    const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
@@ -147,13 +148,15 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
   }
 
   RC rc = RC::SUCCESS;
+  std::unordered_map<std::string, Table *> temp_table_map = table_map;
+  temp_table_map.insert(parent_table_map.begin(), parent_table_map.end());
 
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
   DEFER_WHEN_NOT_NULL(filter_stmt);
   if (0 != select_sql.condition_num) {
-    rc =
-        FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
+    rc = FilterStmt::create(
+        db, default_table, &temp_table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;

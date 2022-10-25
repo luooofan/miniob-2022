@@ -2409,7 +2409,7 @@ yyreduce:
   case 92:
 #line 715 "yacc_sql.y"
                                                                                           {
-      //printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
+      // printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
 
       Selects * sub_select = (Selects *)malloc(sizeof(Selects));
       memset(sub_select, 0 ,sizeof(Selects));
@@ -2541,7 +2541,7 @@ yyreduce:
   case 102:
 #line 810 "yacc_sql.y"
                 {
-      printf("THE QUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n\n", (yyvsp[-7].cur_len), (yyvsp[-5].from_info)->from_len, (yyvsp[-5].from_info)->inner_join_conditions_len, (yyvsp[-4].cur_len), (yyvsp[-3].cur_len), (yyvsp[-2].cur_len), (yyvsp[-1].cur_len));
+      // printf("THE QUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n\n", $2, $4->from_len, $4->inner_join_conditions_len, $5, $6, $7, $8);
 
 			selects_append_projects(&CONTEXT->ssql->sstr.selection, CONTEXT->projects, CONTEXT->project_length);
 

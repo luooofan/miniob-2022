@@ -41,6 +41,19 @@ public:
     children_.push_back(oper);
   }
 
+  const Tuple *parent_tuple() const
+  {
+    return parent_tuple_;
+  }
+  void set_parent_tuple(const Tuple *parent_tuple)
+  {
+    parent_tuple_ = parent_tuple;
+    for (auto child : children_) {
+      child->set_parent_tuple(parent_tuple);
+    }
+  }
+
 protected:
   std::vector<Operator *> children_;
+  const Tuple *parent_tuple_ = nullptr;  // for sub query
 };
