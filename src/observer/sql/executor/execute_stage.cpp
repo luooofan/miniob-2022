@@ -556,7 +556,29 @@ RC ExecuteStage::gen_physical_plan(
     pred_oper->add_child(top_op);
     top_op = pred_oper;
     delete_opers.emplace_back(pred_oper);
-    // TODO(wbj) gen physical plan for sub query
+
+    // process sub query
+    auto process_sub_query = [&](Expression *expr) {
+      if (ExprType::SUBQUERYTYPE == expr->type()) {
+        auto sub_query_expr = (SubQueryExpression *)expr;
+        const SelectStmt *sub_select = sub_query_expr->get_sub_query_stmt();
+        ProjectOperator *sub_project = nullptr;
+        if (RC::SUCCESS != (rc = gen_physical_plan(sub_select, sub_project, delete_opers))) {
+          return rc;
+        }
+        assert(nullptr != sub_project);
+        sub_query_expr->set_sub_query_top_oper(sub_project);
+      }
+      return RC::SUCCESS;
+    };
+    for (auto unit : select_stmt->filter_stmt()->filter_units()) {
+      if (RC::SUCCESS != (rc = process_sub_query(unit->left()))) {
+        return rc;
+      }
+      if (RC::SUCCESS != (rc = process_sub_query(unit->right()))) {
+        return rc;
+      }
+    }
   }
 
   // 2 process groupby clause and aggrfunc fileds
@@ -708,6 +730,7 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
     LOG_WARN("something wrong while iterate operator. rc=%s", strrc(rc));
     session_event->set_response("FAILURE\n");
     project_oper->close();
+    return rc;
   } else {
     rc = project_oper->close();
   }

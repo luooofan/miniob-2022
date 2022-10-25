@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include <cassert>
 #include <cstring>
 #include <iostream>
+#include <vector>
 #include "sql/parser/parse_defs.h"
 #include "storage/common/table.h"
 #include "storage/common/field_meta.h"
@@ -146,6 +147,36 @@ public:
   bool is_null() const
   {
     return AttrType::NULLS == attr_type_;
+  }
+
+  // consider null: null is euqal to null
+  bool equal_to(const TupleCell &other) const
+  {
+    if (is_null()) {
+      return other.is_null();
+    }
+    return 0 == compare(other);
+  }
+
+  bool in_cells(const std::vector<TupleCell> &cells) const
+  {
+    for (auto &cell : cells) {
+      if (equal_to(cell)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  // return false if is_null and null in cells
+  bool not_in_cells(const std::vector<TupleCell> &cells) const
+  {
+    for (auto &cell : cells) {
+      if (equal_to(cell)) {
+        return false;
+      }
+    }
+    return true;
   }
 
 private:

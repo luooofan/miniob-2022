@@ -25,8 +25,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/db.h"
 
 class Tuple;
-class Operator;
 class SelectStmt;
+class ProjectOperator;
 class Stmt;
 
 enum class ExprType {
@@ -331,36 +331,35 @@ public:
   void to_string(std::ostream &os) const override
   {}
 
-  RC get_value(const Tuple &tuple, TupleCell &final_cell) const override
-  {
-    return RC::SUCCESS;
-  }
-
-  void set_sub_query_type(SubQueryType type)
-  {
-    type_ = type;
-  }
-
-  SubQueryType get_sub_query_type()
-  {
-    return type_;
-  }
+  RC get_value(const Tuple &tuple, TupleCell &final_cell) const override;
 
   void set_sub_query_stmt(SelectStmt *sub_stmt)
   {
     sub_stmt_ = sub_stmt;
   }
 
-  SelectStmt *&get_sub_query_stmt()
+  SelectStmt *get_sub_query_stmt() const
   {
     return sub_stmt_;
   }
+
+  void set_sub_query_top_oper(ProjectOperator *oper)
+  {
+    sub_top_oper_ = oper;
+  }
+
+  ProjectOperator *get_sub_query_top_oper() const
+  {
+    return sub_top_oper_;
+  }
+
+  RC open_sub_query() const;
+  RC close_sub_query() const;
 
   static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
       const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
 
 private:
-  SubQueryType type_;
-  SelectStmt *sub_stmt_;
-  Operator *sub_top_oper_;
+  SelectStmt *sub_stmt_ = nullptr;
+  ProjectOperator *sub_top_oper_ = nullptr;
 };

@@ -17,6 +17,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/expr/tuple.h"
 #include <unordered_map>
 #include "sql/stmt/select_stmt.h"
+#include "sql/operator/project_operator.h"
 
 void FieldExpr::to_string(std::ostream &os) const
 {
@@ -244,6 +245,36 @@ void AggrFuncExpression::get_aggrfuncexprs(const Expression *expr, std::vector<A
   return;
 }
 
+RC SubQueryExpression::open_sub_query() const
+{
+  assert(nullptr != sub_top_oper_);
+  return sub_top_oper_->open();
+}
+RC SubQueryExpression::close_sub_query() const
+{
+  assert(nullptr != sub_top_oper_);
+  return sub_top_oper_->close();
+}
+RC SubQueryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) const
+{
+  assert(nullptr != sub_top_oper_);
+  sub_top_oper_->set_parent_tuple(&tuple);  // set parent tuple
+  RC rc = sub_top_oper_->next();
+  if (RC::RECORD_EOF == rc) {
+    final_cell.set_null();
+  }
+  if (RC::SUCCESS != rc) {
+    return rc;
+  }
+  Tuple *child_tuple = sub_top_oper_->current_tuple();
+  if (nullptr == child_tuple) {
+    LOG_WARN("failed to get current record. rc=%s", strrc(rc));
+    return RC::INTERNAL;
+  }
+  rc = child_tuple->cell_at(0, final_cell);  // only need the first cell
+  return rc;
+}
+
 RC Expression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
     const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp, Db *db)
 {
@@ -374,27 +405,16 @@ RC SubQueryExpression::create_expression(const Expr *expr, const std::unordered_
   assert(SUBQUERY == expr->type);
   SubQueryExpression *sub_expr = new SubQueryExpression();
   Stmt *tmp_stmt;
-  SelectStmt::create(db, *expr->sexp->sub_select, tmp_stmt);
+  SelectStmt::create(db, *expr->sexp->sub_select, tables, table_map, tmp_stmt);
   sub_expr->set_sub_query_stmt((SelectStmt *)tmp_stmt);
   switch (comp) {
-    case IN_OP: {
-      sub_expr->set_sub_query_type(SubQueryType::SUB_IN);
+    case EXISTS_OP:
+    case NOT_EXISTS:
       break;
-    }
-    case NOT_IN: {
-      sub_expr->set_sub_query_type(SubQueryType::SUB_NOT_IN);
-      break;
-    }
-    case EXISTS_OP: {
-      sub_expr->set_sub_query_type(SubQueryType::SUB_EXISTS);
-      break;
-    }
-    case NOT_EXISTS: {
-      sub_expr->set_sub_query_type(SubQueryType::SUB_NOT_EXISTS);
-      break;
-    }
     default: {
-      sub_expr->set_sub_query_type(SubQueryType::SUB_NORMAL);
+      if (((SelectStmt *)tmp_stmt)->projects().size() != 1) {
+        return RC::SQL_SYNTAX;
+      }
       break;
     }
   }

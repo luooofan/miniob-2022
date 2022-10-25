@@ -79,43 +79,6 @@ RC get_table_and_field(Db *db, Table *default_table, std::unordered_map<std::str
   return RC::SUCCESS;
 }
 
-RC FilterStmt::create_expression(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
-    const Expr *expr, Expression *&expression)
-{
-  RC rc = RC::SUCCESS;
-  if (ExpType::BINARY == expr->type) {
-    BinaryExpr *bexp = expr->bexp;
-    Expression *tmp1 = nullptr;
-    Expression *tmp2 = nullptr;
-    rc = create_expression(db, default_table, tables, bexp->left, tmp1);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("BinaryExpression create left expression failed");
-      return rc;
-    }
-    rc = create_expression(db, default_table, tables, bexp->right, tmp2);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("BinaryExpression create right expression failed");
-      return rc;
-    }
-    expression = new BinaryExpression(bexp->op, tmp1, tmp2);
-    return RC::SUCCESS;
-  }
-  assert(ExpType::UNARY == expr->type);
-  UnaryExpr *uexp = expr->uexp;
-  if (uexp->is_attr) {
-    Table *table = nullptr;
-    const FieldMeta *field = nullptr;
-    rc = get_table_and_field(db, default_table, tables, uexp->attr, table, field);
-    if (rc != RC::SUCCESS) {
-      LOG_WARN("cannot find attr");
-      return rc;
-    }
-    expression = new FieldExpr(table, field);
-  } else {
-    expression = new ValueExpr(uexp->value);
-  }
-  return RC::SUCCESS;
-}
 RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_map<std::string, Table *> *tables,
     const Condition &condition, FilterUnit *&filter_unit)
 {
@@ -129,13 +92,12 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
 
   Expression *left = nullptr;
   Expression *right = nullptr;
-  rc = Expression::create_expression(condition.left, *tables, std::vector<Table *>{default_table}, left);
-  // rc = create_expression(db, default_table, tables, condition.left, left);
+  rc = Expression::create_expression(condition.left, *tables, std::vector<Table *>{default_table}, left, comp, db);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("filter unit create left expression failed");
     return rc;
   }
-  rc = Expression::create_expression(condition.right, *tables, std::vector<Table *>{default_table}, right);
+  rc = Expression::create_expression(condition.right, *tables, std::vector<Table *>{default_table}, right, comp, db);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("filter unit create right expression failed");
     return rc;

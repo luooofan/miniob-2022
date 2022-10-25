@@ -18,6 +18,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/update_stmt.h"
 #include "sql/stmt/delete_stmt.h"
 #include "sql/stmt/select_stmt.h"
+#include <vector>
 
 RC Stmt::create_stmt(Db *db, const Query &query, Stmt *&stmt)
 {
@@ -34,7 +35,9 @@ RC Stmt::create_stmt(Db *db, const Query &query, Stmt *&stmt)
       return DeleteStmt::create(db, query.sstr.deletion, stmt);
     }
     case SCF_SELECT: {
-      return SelectStmt::create(db, query.sstr.selection, stmt);
+      std::vector<Table *> tables;
+      std::unordered_map<std::string, Table *> table_map;
+      return SelectStmt::create(db, query.sstr.selection, tables, table_map, stmt);
     }
     default: {
       LOG_WARN("unknown query command");
