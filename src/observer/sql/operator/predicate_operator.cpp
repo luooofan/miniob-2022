@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "common/lang/defer.h"
 #include "common/log/log.h"
+#include "sql/expr/expression.h"
 #include "sql/operator/predicate_operator.h"
 #include "sql/parser/parse_defs.h"
 #include "storage/record/record.h"
@@ -119,19 +120,20 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
       left_expr->get_value(tuple, left_cell);
       std::vector<TupleCell> right_cells;
       right_cells.emplace_back(TupleCell());
+      RC rc = RC::SUCCESS;
       if (ExprType::SUBQUERYTYPE == right_expr->type()) {
         auto sub_query_expr = (const SubQueryExpression *)right_expr;
         sub_query_expr->open_sub_query();
-        RC rc = RC::SUCCESS;
-        // TODO compound with parent tuple
         while (RC::SUCCESS == (rc = sub_query_expr->get_value(tuple, right_cells.back()))) {
           right_cells.emplace_back(TupleCell());
         }
+        sub_query_expr->close_sub_query();
         assert(RC::RECORD_EOF == rc);
         right_cells.pop_back();  // pop null cell for record_eof
-        sub_query_expr->close_sub_query();
       } else {
-        // TODO list expr
+        assert(ExprType::SUBLISTTYPE == right_expr->type());
+        auto list_expr = (const ListExpression *)right_expr;
+        right_cells = list_expr->get_tuple_cells();
       }
 
       auto has_null = [](const std::vector<TupleCell> &cells) {

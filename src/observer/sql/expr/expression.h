@@ -372,30 +372,33 @@ public:
 
   virtual ~ListExpression() = default;
 
-  RC get_value(const Tuple &tuple, TupleCell &cell) const override{};
+  RC get_value(const Tuple &tuple, TupleCell &cell) const override
+  {
+    return RC::UNIMPLENMENT;
+  }
+
   ExprType type() const override
   {
     return ExprType::SUBLISTTYPE;
   }
 
-  // void get_tuple_cell(TupleCell &cell) const
-  // {
-  //   cell = tuple_cell_;
-  // }
   void set_tuple_cells(Value values[], int value_length)
   {
     TupleCell tuple_cell;
     for (int i = 0; i < value_length; i++) {
       tuple_cell.set_type(values[i].type);
-      tuple_cell.set_length(strlen((const char *)values[i].data));
-      tuple_cell.set_data((char *)values[i].data);
+      tuple_cell.set_length(-1);
+      tuple_cell.set_data((char *)values[i].data);  // maybe null
+      if (values[i].type == CHARS) {
+        tuple_cell.set_length(strlen((const char *)values[i].data));
+      }
       tuple_cells_.emplace_back(tuple_cell);
     }
   }
 
-  void set_tuple_cells_length(int value_length)
+  const std::vector<TupleCell> get_tuple_cells() const
   {
-    tuple_cells_length_ = value_length;
+    return tuple_cells_;
   }
 
   void to_string(std::ostream &os) const override{};
@@ -404,6 +407,5 @@ public:
       const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
 
 private:
-  int tuple_cells_length_;
   std::vector<TupleCell> tuple_cells_;
 };

@@ -430,7 +430,6 @@ RC ListExpression::create_expression(const Expr *expr, const std::unordered_map<
   assert(SUBLIST == expr->type);
   ListExpr *lexpr = expr->lexp;
   ListExpression *list_expr = new ListExpression();
-  list_expr->set_tuple_cells_length(lexpr->list_length);
   list_expr->set_tuple_cells(lexpr->list, lexpr->list_length);
   res_expr = list_expr;
   return RC::SUCCESS;
