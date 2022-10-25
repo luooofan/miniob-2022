@@ -576,16 +576,30 @@ condition:
       condition_init(&cond, NOT_IN, $1, $4);
       CONTEXT->conditions[CONTEXT->condition_length++] = cond;
     }
-    | add_expr EXISTS add_expr {
+    | EXISTS add_expr {
       // TODO
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, 1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
       Condition cond;
-      condition_init(&cond, EXISTS_OP, $1, $3);
+      condition_init(&cond, EXISTS_OP, tmp_expr, $2);
       CONTEXT->conditions[CONTEXT->condition_length++] = cond;
     }
-    | add_expr NOT EXISTS add_expr {
+    | NOT EXISTS add_expr {
       // TODO
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, 1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
       Condition cond;
-      condition_init(&cond, NOT_EXISTS, $1, $4);
+      condition_init(&cond, NOT_EXISTS, tmp_expr, $3);
       CONTEXT->conditions[CONTEXT->condition_length++] = cond;
     }
     ;
