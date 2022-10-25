@@ -22,8 +22,12 @@ See the Mulan PSL v2 for more details. */
 #include "sql/parser/parse_defs.h"
 #include "storage/common/field.h"
 #include "sql/expr/tuple_cell.h"
+#include "storage/common/db.h"
 
 class Tuple;
+class Operator;
+class SelectStmt;
+class Stmt;
 
 enum class ExprType {
   NONE,
@@ -31,6 +35,7 @@ enum class ExprType {
   VALUE,
   BINARY,
   AGGRFUNCTION,
+  SUBQUERYTYPE,
 };
 
 class Expression {
@@ -43,7 +48,7 @@ public:
   virtual void to_string(std::ostream &os) const = 0;
 
   static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
-      const std::vector<Table *> &tables, Expression *&res_expr);
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
 
   void set_with_brace()
   {
@@ -115,6 +120,9 @@ public:
 
   static void get_fieldexprs_without_aggrfunc(const Expression *expr, std::vector<FieldExpr *> &field_exprs);
 
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
+
 private:
   Field field_;
 };
@@ -148,6 +156,9 @@ public:
   }
 
   void to_string(std::ostream &os) const override;
+
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
 
 private:
   TupleCell tuple_cell_;
@@ -213,6 +224,9 @@ public:
     return ExprType::BINARY;
   }
   void to_string(std::ostream &os) const override;
+
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
 
 private:
   ExpOp op_;
@@ -295,8 +309,58 @@ public:
 
   static void get_aggrfuncexprs(const Expression *expr, std::vector<AggrFuncExpression *> &aggrfunc_exprs);
 
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
+
 private:
   AggrFuncType type_;
   const FieldExpr *field_ = nullptr;  // don't own this. keep const.
   const ValueExpr *value_ = nullptr;  // for count(1) count(*) count("xxx") output
+};
+
+class SubQueryExpression : public Expression {
+public:
+  SubQueryExpression() = default;
+  virtual ~SubQueryExpression() = default;
+
+  ExprType type() const override
+  {
+    return ExprType::SUBQUERYTYPE;
+  }
+
+  void to_string(std::ostream &os) const override
+  {}
+
+  RC get_value(const Tuple &tuple, TupleCell &final_cell) const override
+  {
+    return RC::SUCCESS;
+  }
+
+  void set_sub_query_type(SubQueryType type)
+  {
+    type_ = type;
+  }
+
+  SubQueryType get_sub_query_type()
+  {
+    return type_;
+  }
+
+  void set_sub_query_stmt(SelectStmt *sub_stmt)
+  {
+    sub_stmt_ = sub_stmt;
+  }
+
+  SelectStmt *&get_sub_query_stmt()
+  {
+    return sub_stmt_;
+  }
+
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
+
+private:
+  SubQueryType type_;
+  SelectStmt *sub_stmt_;
+  Operator *sub_top_oper_;
 };

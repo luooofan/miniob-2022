@@ -182,6 +182,7 @@ ParserContext *get_context(yyscan_t scanner)
   float floats;
 	char *position;
   int cur_len;
+  int comp_op;
 }
 
 %token <number> NUMBER
@@ -217,6 +218,7 @@ ParserContext *get_context(yyscan_t scanner)
 %type <cur_len> having_condition_list;
 %type <cur_len> opt_order_by;
 %type <cur_len> sort_list;
+%type <comp_op> comOp;
 
 %%
 
@@ -512,7 +514,7 @@ add_expr:
 condition:
     add_expr comOp add_expr{
       Condition expr;
-      condition_init(&expr, CONTEXT->comp, $1, $3);
+      condition_init(&expr, $2, $1, $3);
       // condition_print(&expr, 0);
       CONTEXT->conditions[CONTEXT->condition_length++] = expr;
     }
@@ -547,6 +549,25 @@ condition:
     | add_expr IN add_expr {
       // TODO
       Condition cond;
+      condition_init(&cond, IN_OP, $1, $3);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | add_expr NOT IN add_expr {
+      // TODO
+      Condition cond;
+      condition_init(&cond, NOT_IN, $1, $4);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | add_expr EXISTS add_expr {
+      // TODO
+      Condition cond;
+      condition_init(&cond, EXISTS_OP, $1, $3);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | add_expr NOT EXISTS add_expr {
+      // TODO
+      Condition cond;
+      condition_init(&cond, NOT_EXISTS, $1, $4);
       CONTEXT->conditions[CONTEXT->condition_length++] = cond;
     }
     ;
@@ -554,7 +575,7 @@ condition:
 having_condition:
     add_expr comOp add_expr{
       Condition expr;
-      condition_init(&expr, CONTEXT->comp, $1, $3);
+      condition_init(&expr, $2, $1, $3);
       CONTEXT->havings[CONTEXT->having_length++] = expr;
     }
     ;
@@ -596,7 +617,7 @@ unary_expr:
       $$ = $1;
     }
     | sub_select {
-      // $$ = $1;
+       $$ = $1;
     }
     ;
 
@@ -692,24 +713,27 @@ func_expr:
 
 sub_select:
     LBRACE SELECT select_attr FROM from where opt_group_by opt_having opt_order_by RBRACE {
-      printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
+      //printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
 
-			selects_append_projects(&CONTEXT->ssql->sstr.selection,  &CONTEXT->projects[CONTEXT->project_length - $3], $3);
+      Selects * sub_select = (Selects *)malloc(sizeof(Selects));
+      memset(sub_select, 0 ,sizeof(Selects));
+
+			selects_append_projects(sub_select,  &CONTEXT->projects[CONTEXT->project_length - $3], $3);
     
       size_t from_len = $5->from_len;
       size_t inner_join_conditions_len = $5->inner_join_conditions_len;
-			selects_append_froms(&CONTEXT->ssql->sstr.selection,  &CONTEXT->froms[CONTEXT->from_length - from_len], from_len);
+			selects_append_froms(sub_select,  &CONTEXT->froms[CONTEXT->from_length - from_len], from_len);
 
       size_t all_condition_len = $6 + inner_join_conditions_len;
-			selects_append_conditions(&CONTEXT->ssql->sstr.selection, &CONTEXT->conditions[CONTEXT->condition_length - all_condition_len], all_condition_len);
+			selects_append_conditions(sub_select, &CONTEXT->conditions[CONTEXT->condition_length - all_condition_len], all_condition_len);
 
-			selects_append_groupbys(&CONTEXT->ssql->sstr.selection, &CONTEXT->groupbys[CONTEXT->groupby_length - $7], $7);
+			selects_append_groupbys(sub_select, &CONTEXT->groupbys[CONTEXT->groupby_length - $7], $7);
 
-			selects_append_havings(&CONTEXT->ssql->sstr.selection, &CONTEXT->havings[CONTEXT->having_length - $8], $8);
+			selects_append_havings(sub_select, &CONTEXT->havings[CONTEXT->having_length - $8], $8);
 
-			selects_append_orderbys(&CONTEXT->ssql->sstr.selection, &CONTEXT->orderbys[CONTEXT->orderby_length - $9], $9);
+			selects_append_orderbys(sub_select, &CONTEXT->orderbys[CONTEXT->orderby_length - $9], $9);
 
-			CONTEXT->ssql->flag=SCF_SELECT;//"select";
+			//CONTEXT->ssql->flag=SCF_SELECT;//"select";
 
 			CONTEXT->orderby_length -= $9;
       CONTEXT->having_length -= $8;
@@ -721,6 +745,11 @@ sub_select:
 			CONTEXT->value_length = 0;
 
       // TODO cons expr
+      SubQueryExpr * s_expr = malloc(sizeof(SubQueryExpr));
+      sub_query_expr_init(s_expr, sub_select);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_sub_query(expr, s_expr);
+      $$ = expr;
     }
     ;
 
@@ -929,14 +958,14 @@ having_condition_list:
 
 
 comOp:
-  	  EQ { CONTEXT->comp = EQUAL_TO; }
-    | LT { CONTEXT->comp = LESS_THAN; }
-    | GT { CONTEXT->comp = GREAT_THAN; }
-    | LE { CONTEXT->comp = LESS_EQUAL; }
-    | GE { CONTEXT->comp = GREAT_EQUAL; }
-    | NE { CONTEXT->comp = NOT_EQUAL; }
-    | LIKE { CONTEXT->comp = LIKE_OP; }
-    | NOT LIKE { CONTEXT->comp = NOT_LIKE_OP; }
+  	  EQ { $$ = EQUAL_TO; }
+    | LT { $$ = LESS_THAN; }
+    | GT { $$ = GREAT_THAN; }
+    | LE { $$ = LESS_EQUAL; }
+    | GE { $$ = GREAT_EQUAL; }
+    | NE { $$ = NOT_EQUAL; }
+    | LIKE { $$ = LIKE_OP; }
+    | NOT LIKE { $$ = NOT_LIKE_OP; }
     ;
 sort_unit:
 	ID

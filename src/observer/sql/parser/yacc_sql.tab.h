@@ -149,8 +149,9 @@ union YYSTYPE {
   float floats;
   char *position;
   int cur_len;
+  int comp_op;
 
-#line 156 "yacc_sql.tab.h"
+#line 157 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1
