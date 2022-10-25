@@ -118,6 +118,10 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
     // 1. for [not] in
     if (CompOp::IN_OP == comp || CompOp::NOT_IN == comp) {
       left_expr->get_value(tuple, left_cell);
+      if (left_cell.is_null()) {
+        res = false;  // null don't in/not in any list
+        return RC::SUCCESS;
+      }
       std::vector<TupleCell> right_cells;
       right_cells.emplace_back(TupleCell());
       RC rc = RC::SUCCESS;
