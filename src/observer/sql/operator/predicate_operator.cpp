@@ -112,7 +112,10 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
       RC tmp_rc = sub_query_expr->get_value(tuple, right_cell);
       sub_query_expr->close_sub_query();
       res = CompOp::EXISTS_OP == comp ? (RC::SUCCESS == tmp_rc) : (RC::RECORD_EOF == tmp_rc);
-      return RC::SUCCESS;
+      if (!res) {
+        return RC::SUCCESS;
+      }
+      continue;
     }
 
     // 1. for [not] in
@@ -150,7 +153,10 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
       };
       res = CompOp::IN_OP == comp ? left_cell.in_cells(right_cells)
                                   : (has_null(right_cells) ? false : left_cell.not_in_cells(right_cells));
-      return RC::SUCCESS;
+      if (!res) {
+        return RC::SUCCESS;
+      }
+      continue;
     }
 
     auto get_cell_for_sub_query = [](const SubQueryExpression *expr, const Tuple &tuple, TupleCell &cell) {
@@ -205,12 +211,18 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
     if (CompOp::IS_NULL == comp) {
       assert(right_cell.is_null());
       res = left_cell.is_null();
-      return RC::SUCCESS;
+      if (!res) {
+        return RC::SUCCESS;
+      }
+      continue;
     }
     if (CompOp::IS_NOT_NULL == comp) {
       assert(right_cell.is_null());
       res = !left_cell.is_null();
-      return RC::SUCCESS;
+      if (!res) {
+        return RC::SUCCESS;
+      }
+      continue;
     }
 
     // 1. check null
