@@ -104,7 +104,8 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
 
     // 0. for [not] exist
     if (CompOp::EXISTS_OP == comp || CompOp::NOT_EXISTS == comp) {
-      assert(nullptr == left_expr);
+      // TODO(wbj)
+      // assert(nullptr == left_expr);
       assert(ExprType::SUBQUERYTYPE == right_expr->type());
       auto sub_query_expr = (const SubQueryExpression *)right_expr;
       sub_query_expr->open_sub_query();
