@@ -106,6 +106,7 @@ ParserContext *get_context(yyscan_t scanner)
         SELECT
         DESC
         ASC
+        AS
         SHOW
         SYNC
         INSERT
@@ -900,6 +901,14 @@ select_attr:
 			CONTEXT->projects[CONTEXT->project_length++]=project_col;
       $$ = $2 + 1;
     }
+    |
+    add_expr AS ID attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $1);
+      expr_init_alias($1, $3);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $4 + 1;
+    }
     ;
 attr_list:
     /* empty */ {
@@ -926,12 +935,36 @@ attr_list:
 			CONTEXT->projects[CONTEXT->project_length++]=project_col;
       $$ = $3 + 1;
     }
+    |
+    COMMA add_expr AS ID attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $2);
+      expr_init_alias($2, $4);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $5 + 1;
+    }
   	;
 
 from:
     ID rel_list {
-			CONTEXT->froms[CONTEXT->from_length++]=$1;
+      Relation rel;
+      relation_from_init(&rel, $1, NULL);
+			CONTEXT->froms[CONTEXT->from_length++]=rel;
       $$ = $2;
+      $$->from_len++;
+    }
+    |ID ID rel_list {
+      Relation rel;
+      relation_from_init(&rel, $1, $2);
+			CONTEXT->froms[CONTEXT->from_length++]=rel;
+      $$ = $3;
+      $$->from_len++;
+    }
+    |ID AS ID rel_list {
+      Relation rel;
+      relation_from_init(&rel, $1, $3);
+			CONTEXT->froms[CONTEXT->from_length++]=rel;
+      $$ = $4;
       $$->from_len++;
     }
     ;
@@ -944,12 +977,30 @@ rel_list:
       $$->inner_join_conditions_len = 0;
     }
     | COMMA ID rel_list {	
-        CONTEXT->froms[CONTEXT->from_length++]=$2;
+        Relation rel;
+        relation_from_init(&rel, $2, NULL);
+        CONTEXT->froms[CONTEXT->from_length++]=rel;
         $$ = $3;
         $$->from_len++;
 		  }
+    | COMMA ID ID rel_list{
+      Relation rel;
+      relation_from_init(&rel, $2, $3);
+			CONTEXT->froms[CONTEXT->from_length++]=rel;
+      $$ = $4;
+      $$->from_len++;
+    }
+    | COMMA ID AS ID rel_list{
+      Relation rel;
+      relation_from_init(&rel, $2, $4);
+			CONTEXT->froms[CONTEXT->from_length++]=rel;
+      $$ = $5;
+      $$->from_len++;
+    }
     | INNER JOIN ID inner_join_conditions rel_list{
-        CONTEXT->froms[CONTEXT->from_length++]=$3;
+      Relation rel;
+      relation_from_init(&rel, $3, NULL);
+        CONTEXT->froms[CONTEXT->from_length++]=rel;
         $$ = $5;
         $$->from_len++;
         $$->inner_join_conditions_len += $4;

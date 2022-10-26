@@ -56,6 +56,24 @@ void value_print(Value *value, int indent)
   printf("\n");
 }
 
+void relation_from_destory(Relation *relation)
+{
+  if (relation->alias != NULL) {
+    free(relation->alias);
+  }
+  free(relation->relation_name);
+}
+
+void relation_from_init(Relation *relation, const char *relation_name, const char *alias_name)
+{
+  relation->relation_name = strdup(relation_name);
+  if (alias_name != NULL) {
+    relation->alias = strdup(alias_name);
+  } else {
+    relation->alias = NULL;
+  }
+}
+
 void unary_expr_print(UnaryExpr *expr, int indent)
 {
   if (expr->is_attr) {
@@ -243,6 +261,13 @@ void expr_print(Expr *expr, int indent)
   }
 }
 
+void expr_init_alias(Expr *expr, const char *alias_name)
+{
+  if (alias_name != nullptr) {
+    expr->alias = strdup(alias_name);
+  }
+}
+
 void expr_init_list(Expr *expr, ListExpr *l_expr)
 {
   expr->type = ExpType::SUBLIST;
@@ -252,6 +277,7 @@ void expr_init_list(Expr *expr, ListExpr *l_expr)
   expr->fexp = NULL;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
@@ -263,6 +289,7 @@ void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
   expr->bexp = NULL;
   expr->uexp = NULL;
   expr->lexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
@@ -274,6 +301,7 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
   expr->uexp = NULL;
   expr->sexp = NULL;
   expr->lexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
@@ -285,6 +313,7 @@ void expr_init_func(Expr *expr, FuncExpr *f_expr)
   expr->uexp = NULL;
   expr->sexp = NULL;
   expr->lexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
@@ -296,6 +325,7 @@ void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
   expr->afexp = NULL;
   expr->sexp = NULL;
   expr->lexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
@@ -307,6 +337,7 @@ void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
   expr->afexp = NULL;
   expr->sexp = NULL;
   expr->lexp = NULL;
+  expr->alias = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
@@ -458,16 +489,12 @@ void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 {
   selects->attributes[selects->attr_num++] = *rel_attr;
 }
-void selects_append_relation(Selects *selects, const char *relation_name)
-{
-  selects->relations[selects->relation_num++] = strdup(relation_name);
-}
 
 void selects_append_froms(Selects *selects, Relation froms[], size_t from_num)
 {
   assert(from_num <= sizeof(selects->relations) / sizeof(selects->relations[0]));
   for (size_t i = 0; i < from_num; i++) {
-    selects->relations[i] = strdup(froms[i]);
+    selects->relations[i] = froms[i];
   }
   selects->relation_num = from_num;
 }
@@ -518,8 +545,7 @@ void selects_destroy(Selects *selects)
   selects->attr_num = 0;
 
   for (size_t i = 0; i < selects->relation_num; i++) {
-    free(selects->relations[i]);
-    selects->relations[i] = NULL;
+    relation_from_destory(&selects->relations[i]);
   }
   selects->relation_num = 0;
 

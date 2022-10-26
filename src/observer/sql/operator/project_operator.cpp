@@ -54,6 +54,12 @@ Tuple *ProjectOperator::current_tuple()
 
 void gen_project_name(const Expression *expr, bool is_single_table, std::string &result_name)
 {
+
+  if (!expr->get_alias().empty()) {
+    result_name = expr->get_alias();
+    return;
+  }
+
   if (expr->with_brace()) {
     result_name += '(';
   }

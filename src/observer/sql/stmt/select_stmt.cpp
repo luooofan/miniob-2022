@@ -87,7 +87,8 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
   for (size_t i = 0; i < select_sql.relation_num; i++) {
-    const char *table_name = select_sql.relations[i];
+    const char *table_name = select_sql.relations[i].relation_name;
+    const char *alias_name = select_sql.relations[i].alias;
     if (nullptr == table_name) {
       LOG_WARN("invalid argument. relation name is null. index=%d", i);
       return RC::INVALID_ARGUMENT;
@@ -101,6 +102,9 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
 
     tables.push_back(table);
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
+    if (alias_name != nullptr) {
+      table_map.insert(std::pair<std::string, Table *>(alias_name, table));
+    }
   }
 
   // collect query fields in `select` statement
@@ -127,7 +131,21 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
           return RC::SCHEMA_FIELD_MISSING;
         }
         Table *table = iter->second;
-        wildcard_fields(table, projects);
+        const TableMeta &table_meta = table->table_meta();
+        const int field_num = table_meta.field_num() - table_meta.extra_filed_num();
+        for (int i = table_meta.sys_field_num(); i < field_num; i++) {
+          if (table_meta.field(i)->visible()) {
+            FieldExpr *tmp_field = new FieldExpr(table, table_meta.field(i));
+            std::string alias;
+            if (tables.size() == 1) {
+              alias = std::string(table_meta.field(i)->name());
+            } else {
+              alias = std::string(table_name) + '.' + std::string(table_meta.field(i)->name());
+            }
+            tmp_field->set_alias(alias);
+            projects.emplace_back(tmp_field);
+          }
+        }
       }
     } else  // expression
     {
@@ -135,6 +153,10 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
       RC rc = Expression::create_expression(project_col.expr, table_map, tables, res_project);
       if (rc != RC::SUCCESS) {
         return rc;
+      }
+      if (project_col.expr->alias != nullptr) {
+        std::string alias = std::string(project_col.expr->alias);
+        res_project->set_alias(alias);
       }
       projects.emplace_back(res_project);
     }
