@@ -100,6 +100,12 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
       LOG_WARN("no such table. db=%s, table_name=%s", db->name(), table_name);
       return RC::SCHEMA_TABLE_NOT_EXIST;
     }
+    // duplicate alias
+    if (nullptr != alias_name) {
+      if (0 != table_map.count(std::string(alias_name))) {
+        return RC::SQL_SYNTAX;
+      }
+    }
 
     tables.push_back(table);
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
