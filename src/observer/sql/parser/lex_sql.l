@@ -82,6 +82,8 @@ DOUBLE_QUOTE     \"
 [Oo][Rr][Dd][Ee][Rr]                                 RETURN_TOKEN(ORDER);
 [Gg][Rr][Oo][Uu][Pp]                                 RETURN_TOKEN(GROUP);
 [Bb][Yy]                                             RETURN_TOKEN(BY);
+[Ii][Nn]                                             RETURN_TOKEN(IN);
+[Ee][Xx][Ii][Ss][Tt][Ss]                             RETURN_TOKEN(EXISTS);
 [Hh][Aa][Vv][Ii][Nn][Gg]                             RETURN_TOKEN(HAVING);
 [Mm][Aa][Xx]                                         RETURN_TOKEN(AGGR_MAX);
 [Mm][Ii][Nn]                                         RETURN_TOKEN(AGGR_MIN);

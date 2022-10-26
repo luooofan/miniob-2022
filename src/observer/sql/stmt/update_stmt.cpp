@@ -50,7 +50,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   }
 
   bool field_exist = false;
-  Value value = update.value;
+  Value &value = const_cast<Value &>(update.value);
   const TableMeta &table_meta = table->table_meta();
   const int sys_field_num = table_meta.sys_field_num();
   const int user_field_num = table_meta.field_num() - sys_field_num;

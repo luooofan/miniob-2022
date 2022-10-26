@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/parser/parse.h"
+#include "net/connection_context.h"
 #include "rc.h"
 #include "common/log/log.h"
 #include "sql/parser/parse_defs.h"
@@ -195,10 +196,37 @@ void condition_init_with_null(Condition *condition, CompOp op, Expr *left_expr)
 }
 void condition_destroy(Condition *condition)
 {
-  expr_destroy(condition->left);
+  if (NULL != condition->left) {
+    expr_destroy(condition->left);
+  }
   if (NULL != condition->right) {
     expr_destroy(condition->right);
   }
+}
+
+void list_expr_init(ListExpr *expr, Value values[], size_t value_num)
+{
+  expr->list_length = value_num;
+  for (size_t i = 0; i < value_num; i++) {
+    expr->list[i] = values[i];
+  }
+}
+
+void list_expr_destory(ListExpr *expr)
+{
+  // TODO
+  return;
+}
+
+void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
+{
+  s_expr->sub_select = sub_select;
+}
+
+void sub_query_expr_destory(SubQueryExpr *s_expr)
+{
+  // TODO
+  return;
 }
 
 void expr_print(Expr *expr, int indent)
@@ -214,6 +242,29 @@ void expr_print(Expr *expr, int indent)
       break;
   }
 }
+
+void expr_init_list(Expr *expr, ListExpr *l_expr)
+{
+  expr->type = ExpType::SUBLIST;
+  expr->lexp = l_expr;
+  expr->sexp = NULL;
+  expr->afexp = NULL;
+  expr->fexp = NULL;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->with_brace = 0;
+}
+void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
+{
+  expr->type = ExpType::SUBQUERY;
+  expr->sexp = s_expr;
+  expr->afexp = NULL;
+  expr->fexp = NULL;
+  expr->bexp = NULL;
+  expr->uexp = NULL;
+  expr->lexp = NULL;
+  expr->with_brace = 0;
+}
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
 {
   expr->type = ExpType::AGGRFUNC;
@@ -221,6 +272,8 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
   expr->fexp = NULL;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
@@ -230,6 +283,8 @@ void expr_init_func(Expr *expr, FuncExpr *f_expr)
   expr->fexp = f_expr;
   expr->bexp = NULL;
   expr->uexp = NULL;
+  expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
@@ -239,6 +294,8 @@ void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
   expr->bexp = NULL;
   expr->fexp = NULL;
   expr->afexp = NULL;
+  expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
@@ -248,6 +305,8 @@ void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
   expr->uexp = NULL;
   expr->fexp = NULL;
   expr->afexp = NULL;
+  expr->sexp = NULL;
+  expr->lexp = NULL;
   expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
@@ -382,11 +441,19 @@ void attr_info_destroy(AttrInfo *attr_info)
 
 void selects_init(Selects *selects, ...);
 
-void selects_append_projects(Selects *selects, ProjectCol *project_col)
+void selects_append_project(Selects *selects, ProjectCol *project_col)
 {
   selects->projects[selects->project_num++] = *project_col;
 }
 
+void selects_append_projects(Selects *selects, ProjectCol project_col[], size_t project_num)
+{
+  assert(project_num <= sizeof(selects->projects) / sizeof(selects->projects[0]));
+  for (size_t i = 0; i < project_num; i++) {
+    selects->projects[i] = project_col[i];
+  }
+  selects->project_num = project_num;
+}
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 {
   selects->attributes[selects->attr_num++] = *rel_attr;
@@ -394,6 +461,15 @@ void selects_append_attribute(Selects *selects, RelAttr *rel_attr)
 void selects_append_relation(Selects *selects, const char *relation_name)
 {
   selects->relations[selects->relation_num++] = strdup(relation_name);
+}
+
+void selects_append_froms(Selects *selects, Relation froms[], size_t from_num)
+{
+  assert(from_num <= sizeof(selects->relations) / sizeof(selects->relations[0]));
+  for (size_t i = 0; i < from_num; i++) {
+    selects->relations[i] = strdup(froms[i]);
+  }
+  selects->relation_num = from_num;
 }
 
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)

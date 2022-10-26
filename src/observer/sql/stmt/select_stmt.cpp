@@ -13,6 +13,7 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "sql/stmt/select_stmt.h"
+#include "common/lang/defer.h"
 #include "sql/expr/expression.h"
 #include "sql/parser/parse_defs.h"
 #include "sql/stmt/groupby_stmt.h"
@@ -22,6 +23,13 @@ See the Mulan PSL v2 for more details. */
 #include "common/lang/string.h"
 #include "storage/common/db.h"
 #include "storage/common/table.h"
+
+#define DEFER_WHEN_NOT_NULL(ptr) \
+  DEFER([ptr]() {                \
+    if (nullptr != (ptr)) {      \
+      delete (ptr);              \
+    }                            \
+  });
 
 SelectStmt::~SelectStmt()
 {
@@ -67,7 +75,8 @@ static void wildcard_fields(Table *table, std::vector<Expression *> &projects)
   }
 }
 
-RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
+RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table *> &parent_tables,
+    const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
@@ -138,16 +147,24 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
     default_table = tables[0];
   }
 
+  RC rc = RC::SUCCESS;
+  std::unordered_map<std::string, Table *> temp_table_map = table_map;
+  temp_table_map.insert(parent_table_map.begin(), parent_table_map.end());
+
   // create filter statement in `where` statement
   FilterStmt *filter_stmt = nullptr;
-  RC rc =
-      FilterStmt::create(db, default_table, &table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
-  if (rc != RC::SUCCESS) {
-    LOG_WARN("cannot construct filter stmt");
-    return rc;
+  DEFER_WHEN_NOT_NULL(filter_stmt);
+  if (0 != select_sql.condition_num) {
+    rc = FilterStmt::create(
+        db, default_table, &temp_table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct filter stmt");
+      return rc;
+    }
   }
 
   OrderByStmt *orderby_stmt = nullptr;
+  DEFER_WHEN_NOT_NULL(orderby_stmt);
   if (0 != select_sql.orderby_num) {
     rc = OrderByStmt::create(db, default_table, &table_map, select_sql.orderbys, select_sql.orderby_num, orderby_stmt);
     if (rc != RC::SUCCESS) {
@@ -158,6 +175,8 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
 
   OrderByStmt *orderby_stmt_for_groupby = nullptr;
   GroupByStmt *groupby_stmt = nullptr;
+  DEFER_WHEN_NOT_NULL(orderby_stmt_for_groupby);
+  DEFER_WHEN_NOT_NULL(groupby_stmt);
   if (0 != select_sql.groupby_num) {
     rc = OrderByStmt::create(
         db, default_table, &table_map, select_sql.groupbys, select_sql.groupby_num, orderby_stmt_for_groupby);
@@ -174,6 +193,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, Stmt *&stmt)
 
   // create having filter statement in `having` clause
   HavingStmt *having_stmt = nullptr;
+  DEFER_WHEN_NOT_NULL(having_stmt);
   if (0 != select_sql.having_num) {
     rc = FilterStmt::create(db, default_table, &table_map, select_sql.havings, select_sql.having_num, having_stmt);
     if (rc != RC::SUCCESS) {

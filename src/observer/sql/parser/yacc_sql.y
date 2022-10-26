@@ -23,15 +23,23 @@ typedef struct ParserContext {
   size_t aggrfunc_length;
   size_t from_length;
   size_t value_length;
+  size_t project_length;
   Value values[MAX_NUM];
   Condition conditions[MAX_NUM];
   Condition havings[MAX_NUM];
   OrderBy orderbys[MAX_NUM];
   GroupBy groupbys[MAX_NUM];
+  Relation froms[MAX_NUM];
+  ProjectCol projects[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
   AggrFuncType aggrfunctype;
 } ParserContext;
+
+typedef struct _FromInfo {
+  int from_len;
+  int inner_join_conditions_len;
+} FromInfo;
 
 //获取子串
 char *substr(const char *s,int n1,int n2)/*从s中提取下标为n1~n2的字符组成一个新字符串，然后返回这个新串的首地址*/
@@ -68,6 +76,7 @@ void yyerror(yyscan_t scanner, const char *str)
   context->having_length = 0;
   context->groupby_length = 0;
   context->aggrfunc_length = 0;
+  context->project_length = 0;
   context->ssql->sstr.insertion.value_num = 0;
   printf("parse sql failed. error=%s", str);
 }
@@ -115,6 +124,8 @@ ParserContext *get_context(yyscan_t scanner)
         ORDER
         GROUP
         BY
+        IN
+        EXISTS
         HAVING
         AGGR_MAX
         AGGR_MIN
@@ -158,7 +169,6 @@ ParserContext *get_context(yyscan_t scanner)
 %union {
   struct _Attr *attr;
   struct _Condition *condition1;
-  struct _Condition *having1;
   struct _Value *value1;
   struct _UnaryExpr* uexp1;
   struct _Expr* exp1;
@@ -166,10 +176,15 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Expr* exp3;
   struct _Expr* exp4;
   struct _Expr* exp5;
+  struct _Expr* exp6;
+  struct _Expr* exp7;
+  struct _FromInfo* from_info;
   char *string;
   int number;
   float floats;
 	char *position;
+  int cur_len;
+  int comp_op;
 }
 
 %token <number> NUMBER
@@ -184,7 +199,6 @@ ParserContext *get_context(yyscan_t scanner)
 
 %type <number> type;
 %type <condition1> condition;
-%type <having1> having;
 %type <value1> value;
 %type <number> number;
 %type <exp1> unary_expr;
@@ -192,6 +206,23 @@ ParserContext *get_context(yyscan_t scanner)
 %type <exp3> add_expr;
 %type <exp4> func_expr;
 %type <exp5> aggr_func_expr;
+%type <exp6> sub_select;
+%type <exp7> sub_select_list;
+%type <cur_len> select_attr;
+%type <cur_len> attr_list;
+%type <from_info> from;
+%type <from_info> rel_list;
+%type <cur_len> inner_join_conditions;
+%type <cur_len> where;
+%type <cur_len> condition_list;
+%type <cur_len> opt_group_by;
+%type <cur_len> groupby_list;
+%type <cur_len> opt_having;
+%type <cur_len> having_condition_list;
+%type <cur_len> opt_order_by;
+%type <cur_len> sort_list;
+%type <cur_len> value_list;
+%type <comp_op> comOp;
 
 %%
 
@@ -431,10 +462,25 @@ row_value:
       CONTEXT->value_length=0;
 		}
 
+sub_select_list:
+    LBRACE value value_list RBRACE
+    {
+      Expr * expr = malloc(sizeof(Expr));
+      ListExpr * lexp = malloc(sizeof(ListExpr));
+      int v_length = $3 + 1;
+      list_expr_init(lexp, &CONTEXT->values[CONTEXT->value_length - v_length], v_length);
+      expr_init_list(expr, lexp);
+      $$ = expr;
+    }
+    ;
+
 value_list:
-    /* empty */
+    /* empty */{
+        $$ = 0;
+    }
     | COMMA value value_list  { 
   		// CONTEXT->values[CONTEXT->value_length++] = *$2;
+        $$ = $3 + 1;
 	  }
     ;
 
@@ -494,7 +540,7 @@ add_expr:
 condition:
     add_expr comOp add_expr{
       Condition expr;
-      condition_init(&expr, CONTEXT->comp, $1, $3);
+      condition_init(&expr, $2, $1, $3);
       // condition_print(&expr, 0);
       CONTEXT->conditions[CONTEXT->condition_length++] = expr;
     }
@@ -526,12 +572,50 @@ condition:
       condition_init(&cond, IS_NOT_NULL, $1, expr);
       CONTEXT->conditions[CONTEXT->condition_length++] = cond;
     }
+    | add_expr IN add_expr {
+      // TODO
+      Condition cond;
+      condition_init(&cond, IN_OP, $1, $3);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | add_expr NOT IN add_expr {
+      // TODO
+      Condition cond;
+      condition_init(&cond, NOT_IN, $1, $4);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | EXISTS add_expr {
+      // TODO
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, 1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
+      Condition cond;
+      condition_init(&cond, EXISTS_OP, tmp_expr, $2);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
+    | NOT EXISTS add_expr {
+      // TODO
+      Value * tmp_val = malloc(sizeof(Value));
+      value_init_integer(tmp_val, 1);
+      UnaryExpr * tmp_uexpr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(tmp_uexpr, tmp_val);
+      Expr * tmp_expr = malloc(sizeof(Expr));
+      expr_init_unary(tmp_expr, tmp_uexpr);
+
+      Condition cond;
+      condition_init(&cond, NOT_EXISTS, tmp_expr, $3);
+      CONTEXT->conditions[CONTEXT->condition_length++] = cond;
+    }
     ;
 
 having_condition:
     add_expr comOp add_expr{
       Condition expr;
-      condition_init(&expr, CONTEXT->comp, $1, $3);
+      condition_init(&expr, $2, $1, $3);
       CONTEXT->havings[CONTEXT->having_length++] = expr;
     }
     ;
@@ -572,8 +656,13 @@ unary_expr:
     | aggr_func_expr {
       $$ = $1;
     }
+    | sub_select {
+       $$ = $1;
+    }
+    | sub_select_list{
+      $$ = $1;
+    }
     ;
-
 aggr_func_type:
     AGGR_MAX {
       CONTEXT->aggrfunctype = MAX;
@@ -664,6 +753,48 @@ func_expr:
     }
     ;
 
+sub_select:
+    LBRACE SELECT select_attr FROM from where opt_group_by opt_having opt_order_by RBRACE {
+      // printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
+
+      Selects * sub_select = (Selects *)malloc(sizeof(Selects));
+      memset(sub_select, 0 ,sizeof(Selects));
+
+			selects_append_projects(sub_select,  &CONTEXT->projects[CONTEXT->project_length - $3], $3);
+    
+      size_t from_len = $5->from_len;
+      size_t inner_join_conditions_len = $5->inner_join_conditions_len;
+			selects_append_froms(sub_select,  &CONTEXT->froms[CONTEXT->from_length - from_len], from_len);
+
+      size_t all_condition_len = $6 + inner_join_conditions_len;
+			selects_append_conditions(sub_select, &CONTEXT->conditions[CONTEXT->condition_length - all_condition_len], all_condition_len);
+
+			selects_append_groupbys(sub_select, &CONTEXT->groupbys[CONTEXT->groupby_length - $7], $7);
+
+			selects_append_havings(sub_select, &CONTEXT->havings[CONTEXT->having_length - $8], $8);
+
+			selects_append_orderbys(sub_select, &CONTEXT->orderbys[CONTEXT->orderby_length - $9], $9);
+
+			//CONTEXT->ssql->flag=SCF_SELECT;//"select";
+
+			CONTEXT->orderby_length -= $9;
+      CONTEXT->having_length -= $8;
+			CONTEXT->groupby_length -= $7;
+			CONTEXT->condition_length -= all_condition_len;
+      CONTEXT->from_length -= from_len;
+      CONTEXT->project_length -= $3;
+			CONTEXT->select_length=0;
+			CONTEXT->value_length = 0;
+
+      // TODO cons expr
+      SubQueryExpr * s_expr = malloc(sizeof(SubQueryExpr));
+      sub_query_expr_init(s_expr, sub_select);
+      Expr* expr = malloc(sizeof(Expr));
+      expr_init_sub_query(expr, s_expr);
+      $$ = expr;
+    }
+    ;
+
 value:
     NUMBER{	
   		value_init_integer(&CONTEXT->values[CONTEXT->value_length++], $1);
@@ -717,10 +848,13 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM ID rel_list where opt_order_by opt_group_by having SEMICOLON
+    SELECT select_attr FROM from where opt_group_by opt_having opt_order_by SEMICOLON
 		{
-			// CONTEXT->ssql->sstr.selection.relations[CONTEXT->from_length++]=$4;
-			selects_append_relation(&CONTEXT->ssql->sstr.selection, $4);
+      // printf("THE QUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n\n", $2, $4->from_len, $4->inner_join_conditions_len, $5, $6, $7, $8);
+
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, CONTEXT->projects, CONTEXT->project_length);
+
+			selects_append_froms(&CONTEXT->ssql->sstr.selection, CONTEXT->froms, CONTEXT->from_length);
 
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 
@@ -739,6 +873,7 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->orderby_length=0;
 			CONTEXT->condition_length=0;
 			CONTEXT->from_length=0;
+      CONTEXT->project_length=0;
 			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
 	}
@@ -748,93 +883,131 @@ select_attr:
     STAR attr_list {  
 			ProjectCol project_col;
 			projectcol_init_star(&project_col, NULL);
-			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $2 + 1;
 		}
     |
     ID DOT STAR attr_list{
       ProjectCol project_col;
 			projectcol_init_star(&project_col, $1);
-			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $4 + 1;
     }
     |
     add_expr attr_list{
       ProjectCol project_col;
       projectcol_init_expr(&project_col, $1);
-      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $2 + 1;
     }
     ;
 attr_list:
-    /* empty */
+    /* empty */ {
+      $$ = 0;
+    }
     |
     COMMA STAR attr_list {  
 			ProjectCol project_col;
 			projectcol_init_star(&project_col, NULL);
-			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $3 + 1;
 		}
     |
     COMMA ID DOT STAR attr_list{
       ProjectCol project_col;
 			projectcol_init_star(&project_col, $2);
-			selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $5 + 1;
     }
     |
     COMMA add_expr attr_list{
       ProjectCol project_col;
       projectcol_init_expr(&project_col, $2);
-      selects_append_projects(&CONTEXT->ssql->sstr.selection, &project_col);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $3 + 1;
     }
   	;
 
+from:
+    ID rel_list {
+			CONTEXT->froms[CONTEXT->from_length++]=$1;
+      $$ = $2;
+      $$->from_len++;
+    }
+    ;
+
 rel_list:
-    /* empty */
+    /* empty */ {
+      // new FromInfo
+      $$ = (FromInfo*)malloc(sizeof(FromInfo));
+      $$->from_len = 0;
+      $$->inner_join_conditions_len = 0;
+    }
     | COMMA ID rel_list {	
-				selects_append_relation(&CONTEXT->ssql->sstr.selection, $2);
+        CONTEXT->froms[CONTEXT->from_length++]=$2;
+        $$ = $3;
+        $$->from_len++;
 		  }
-	| INNER JOIN ID inner_join_conditions rel_list{
-				selects_append_relation(&CONTEXT->ssql->sstr.selection, $3);
-	}
+    | INNER JOIN ID inner_join_conditions rel_list{
+        CONTEXT->froms[CONTEXT->from_length++]=$3;
+        $$ = $5;
+        $$->from_len++;
+        $$->inner_join_conditions_len += $4;
+    }
     ;
 inner_join_conditions:
-	/* empty */
+	/* empty */ {
+    $$ = 0;
+  }
 	| ON condition condition_list{
-
+    $$ = $3 + 1;
 	}
 	;
 where:
-    /* empty */ 
+    /* empty */ {
+      $$ = 0;
+    }
     | WHERE condition condition_list {	
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
+        $$ = $3 + 1;
 			}
     ;
 condition_list:
-    /* empty */
+    /* empty */ {
+      $$ = 0;
+    }
     | AND condition condition_list {
 				// CONTEXT->conditions[CONTEXT->condition_length++]=*$2;
+        $$ = $3 + 1;
 			}
     ;
-having:
+opt_having:
     /* empty */  { 
-      // do notion
+      $$ = 0;
     }
     | HAVING having_condition having_condition_list {	
+        $$ = $3 + 1;
     }
     ;
 having_condition_list:
-    /* empty */
+    /* empty */ {
+      $$ = 0;
+    }
     | AND having_condition having_condition_list {
+        $$ = $3 + 1;
     }
     ;
 
 
 comOp:
-  	  EQ { CONTEXT->comp = EQUAL_TO; }
-    | LT { CONTEXT->comp = LESS_THAN; }
-    | GT { CONTEXT->comp = GREAT_THAN; }
-    | LE { CONTEXT->comp = LESS_EQUAL; }
-    | GE { CONTEXT->comp = GREAT_EQUAL; }
-    | NE { CONTEXT->comp = NOT_EQUAL; }
-    | LIKE { CONTEXT->comp = LIKE_OP; }
-    | NOT LIKE { CONTEXT->comp = NOT_LIKE_OP; }
+  	  EQ { $$ = EQUAL_TO; }
+    | LT { $$ = LESS_THAN; }
+    | GT { $$ = GREAT_THAN; }
+    | LE { $$ = LESS_EQUAL; }
+    | GE { $$ = GREAT_EQUAL; }
+    | NE { $$ = NOT_EQUAL; }
+    | LIKE { $$ = LIKE_OP; }
+    | NOT LIKE { $$ = NOT_LIKE_OP; }
     ;
 sort_unit:
 	ID
@@ -894,18 +1067,20 @@ sort_unit:
 sort_list:
 	sort_unit COMMA sort_list
 		{
-			
+    $$ = $3 + 1;
 	}
 	| sort_unit
 		{
-			
+    $$ = 1;
 	}
 	;
 opt_order_by:
-	/* empty */
+	/* empty */ {
+   $$ = 0;
+  }
 	| ORDER BY sort_list
 		{
-
+      $$ = $3;
 	}
 	;
 
@@ -928,18 +1103,20 @@ groupby_unit:
 groupby_list:
 	groupby_unit COMMA groupby_list
 		{
-			
+    $$ = $3 + 1;
 	}
 	| groupby_unit
 		{
-			
+    $$ = 1;
 	}
 	;
 opt_group_by:
-	/* empty */
+	/* empty */ {
+    $$ = 0;
+  }
 	| GROUP BY groupby_list
 		{
-
+    $$ = $3 + 1;
 	}
 	;
 
