@@ -115,6 +115,8 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     }
   }
 
+  if (flag)
+    return RC::INTERNAL;
   // collect query fields in `select` statement
   // TODO(wbj) check aggrfunc fields
   std::vector<Expression *> projects;
@@ -199,8 +201,6 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     default_table = tables[0];
   }
 
-  if (flag)
-    return RC::INTERNAL;
   RC rc = RC::SUCCESS;
   std::unordered_map<std::string, Table *> temp_table_map = table_map;
   temp_table_map.insert(parent_table_map.begin(), parent_table_map.end());
