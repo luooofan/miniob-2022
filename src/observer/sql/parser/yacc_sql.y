@@ -909,6 +909,14 @@ select_attr:
 			CONTEXT->projects[CONTEXT->project_length++]=project_col;
       $$ = $4 + 1;
     }
+    |
+    add_expr ID attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $1);
+      expr_init_alias($1, $2);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $3 + 1;
+    }
     ;
 attr_list:
     /* empty */ {
@@ -942,6 +950,14 @@ attr_list:
       expr_init_alias($2, $4);
 			CONTEXT->projects[CONTEXT->project_length++]=project_col;
       $$ = $5 + 1;
+    }
+    |
+    COMMA add_expr ID attr_list{
+      ProjectCol project_col;
+      projectcol_init_expr(&project_col, $2);
+      expr_init_alias($2, $3);
+			CONTEXT->projects[CONTEXT->project_length++]=project_col;
+      $$ = $4 + 1;
     }
   	;
 

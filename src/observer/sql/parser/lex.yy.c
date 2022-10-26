@@ -4627,8 +4627,8 @@ static void yynoreturn yy_fatal_error ( const char* msg , yyscan_t yyscanner );
 	yyg->yy_hold_char = *yy_cp; \
 	*yy_cp = '\0'; \
 	yyg->yy_c_buf_p = yy_cp;
-#define YY_NUM_RULES 81
-#define YY_END_OF_BUFFER 82
+#define YY_NUM_RULES 82
+#define YY_END_OF_BUFFER 83
 /* This struct is not used in this scanner,
    but its presence is necessary. */
 struct yy_trans_info
@@ -4636,102 +4636,35 @@ struct yy_trans_info
 	flex_int32_t yy_verify;
 	flex_int32_t yy_nxt;
 	};
-<<<<<<< HEAD
 static const flex_int16_t yy_accept[247] =
-=======
-static const flex_int16_t yy_accept[245] =
     {   0,
-        0,    0,    0,    0,   82,   80,    1,    2,   80,   80,
-       80,   65,   66,    8,   75,   67,    3,    7,   76,    4,
-        6,   72,   68,   74,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   81,   71,    0,   79,    0,
-        0,   78,    0,    0,    0,    4,   69,   70,   73,   64,
-       64,   64,   12,   64,   64,   49,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   50,   61,
-       64,   64,   64,   64,   64,   64,   64,   64,   21,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
+        0,    0,    0,    0,   83,   81,    1,    2,   81,   81,
+       81,   66,   67,    8,   76,   68,    3,    7,   77,    4,
+        6,   73,   69,   75,   65,   65,   65,   65,   65,   65,
+       65,   65,   65,   65,   65,   65,   65,   65,   65,   65,
+       65,   65,   65,   65,   65,   82,   72,    0,   80,    0,
+        0,   79,    0,    0,    0,    4,   70,   71,   74,   65,
+       65,   65,   12,   65,   65,   49,   65,   65,   65,   65,
+       65,   65,   65,   65,   65,   65,   65,   65,   50,   61,
+       65,   65,   65,   65,   65,   65,   65,   65,   21,   65,
+       65,   65,   65,   65,   65,   65,   65,   65,   65,   65,
 
-        0,    5,   27,   13,   56,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   37,   64,   64,   64,   64,   53,
-       54,   44,   64,   64,   64,   64,   64,   33,   64,   55,
-       64,   64,   64,   64,   64,   64,    0,   64,   38,   64,
-       64,   64,   42,   39,   64,   11,   15,   64,    9,   64,
-       25,   64,   64,   10,   64,   64,   64,   64,   29,   20,
-       64,   45,   41,   62,   64,   64,   64,   64,   22,   23,
-       64,   64,   64,   64,   64,    0,   34,   64,   57,   64,
-       64,   64,   64,   40,   48,   64,   18,   64,   19,   64,
+       65,    0,    5,   27,   13,   56,   65,   65,   65,   65,
+       65,   65,   65,   65,   65,   65,   65,   65,   65,   65,
+       65,   65,   65,   65,   65,   37,   65,   65,   65,   65,
+       53,   54,   44,   65,   65,   65,   65,   65,   33,   65,
+       55,   65,   65,   65,   65,   65,   65,   65,    0,   65,
+       38,   65,   65,   65,   42,   39,   65,   11,   15,   65,
+        9,   65,   25,   65,   65,   10,   65,   65,   65,   65,
+       29,   20,   65,   45,   41,   62,   65,   65,   65,   65,
+       22,   23,   65,   64,   65,   65,   65,   65,    0,   34,
+       65,   57,   65,   65,   65,   65,   40,   48,   65,   18,
 
-       64,   64,   47,   64,   59,   64,   16,   64,   64,   64,
-       26,    0,   35,   14,   64,   31,   51,   52,   43,   28,
-       58,   64,   64,   24,   17,   46,   32,   30,    0,   64,
-       64,   64,    0,    0,   64,   63,   36,    0,   64,   77,
-        0,   64,   60,    0
-    } ;
-
-static const YY_CHAR yy_ec[256] =
-    {   0,
-        1,    1,    1,    1,    1,    1,    1,    2,    2,    3,
-        1,    2,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    4,    5,    6,    1,    1,    7,    1,    8,    9,
-       10,   11,   12,   13,   14,   15,   16,   17,   17,   17,
-       17,   17,   17,   17,   17,   17,   17,    1,   18,   19,
-       20,   21,    1,    1,   22,   23,   24,   25,   26,   27,
-       28,   29,   30,   31,   32,   33,   34,   35,   36,   37,
-       38,   39,   40,   41,   42,   43,   44,   45,   46,   47,
-        1,   48,    1,    1,   49,    1,   22,   23,   24,   25,
-
-       26,   27,   28,   29,   30,   31,   32,   33,   34,   35,
-       36,   37,   38,   39,   40,   41,   42,   43,   44,   45,
-       46,   47,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1,    1,    1,    1,    1,    1,
-        1,    1,    1,    1,    1
-    } ;
-
-static const YY_CHAR yy_meta[50] =
->>>>>>> alias finish v1
-    {   0,
-        0,    0,    0,    0,   82,   80,    1,    2,   80,   80,
-       80,   65,   66,    8,   75,   67,    3,    7,   76,    4,
-        6,   72,   68,   74,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   81,   71,    0,   79,    0,
-        0,   78,    0,    0,    0,    4,   69,   70,   73,   64,
-       64,   64,   64,   64,   64,   48,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   49,   60,
-       64,   64,   64,   64,   64,   64,   64,   64,   20,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
-
-       64,    0,    5,   26,   12,   55,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   64,   64,   64,   64,   64,
-       64,   64,   64,   64,   64,   36,   64,   64,   64,   64,
-       52,   53,   43,   64,   64,   64,   64,   64,   32,   64,
-       54,   64,   64,   64,   64,   64,   64,   64,    0,   64,
-       37,   64,   64,   64,   41,   38,   64,   11,   14,   64,
-        9,   64,   24,   64,   64,   10,   64,   64,   64,   64,
-       28,   19,   64,   44,   40,   61,   64,   64,   64,   64,
-       21,   22,   64,   63,   64,   64,   64,   64,    0,   33,
-       64,   56,   64,   64,   64,   64,   39,   47,   64,   17,
-
-       64,   18,   64,   64,   64,   46,   64,   58,   64,   15,
-       64,   64,   64,   25,    0,   34,   13,   64,   30,   50,
-       51,   42,   27,   57,   64,   64,   23,   16,   45,   31,
-       29,    0,   64,   64,   64,    0,    0,   64,   62,   35,
-        0,   64,   77,    0,   64,   59
+       65,   19,   65,   65,   65,   47,   65,   59,   65,   16,
+       65,   65,   65,   26,    0,   35,   14,   65,   31,   51,
+       52,   43,   28,   58,   65,   65,   24,   17,   46,   32,
+       30,    0,   65,   65,   65,    0,    0,   65,   63,   36,
+        0,   65,   78,    0,   65,   60
     } ;
 
 static const yy_state_type yy_NUL_trans[247] =
@@ -5414,46 +5347,42 @@ RETURN_TOKEN(NULL_VALUE);
 case 63:
 YY_RULE_SETUP
 #line 99 "lex_sql.l"
-<<<<<<< HEAD
-RETURN_TOKEN(TEXT);
-=======
 RETURN_TOKEN(NULLABLE);
->>>>>>> alias finish v1
 	YY_BREAK
 case 64:
 YY_RULE_SETUP
 #line 100 "lex_sql.l"
-yylval->string=strdup(yytext); RETURN_TOKEN(ID);
+RETURN_TOKEN(TEXT);
 	YY_BREAK
 case 65:
 YY_RULE_SETUP
 #line 101 "lex_sql.l"
-RETURN_TOKEN(LBRACE);
+yylval->string=strdup(yytext); RETURN_TOKEN(ID);
 	YY_BREAK
 case 66:
 YY_RULE_SETUP
 #line 102 "lex_sql.l"
-RETURN_TOKEN(RBRACE);
+RETURN_TOKEN(LBRACE);
 	YY_BREAK
 case 67:
 YY_RULE_SETUP
-#line 104 "lex_sql.l"
-RETURN_TOKEN(COMMA);
+#line 103 "lex_sql.l"
+RETURN_TOKEN(RBRACE);
 	YY_BREAK
 case 68:
 YY_RULE_SETUP
 #line 105 "lex_sql.l"
-RETURN_TOKEN(EQ);
+RETURN_TOKEN(COMMA);
 	YY_BREAK
 case 69:
 YY_RULE_SETUP
 #line 106 "lex_sql.l"
-RETURN_TOKEN(LE);
+RETURN_TOKEN(EQ);
 	YY_BREAK
 case 70:
 YY_RULE_SETUP
 #line 107 "lex_sql.l"
-RETURN_TOKEN(NE);
+RETURN_TOKEN(LE);
 	YY_BREAK
 case 71:
 YY_RULE_SETUP
@@ -5463,37 +5392,37 @@ RETURN_TOKEN(NE);
 case 72:
 YY_RULE_SETUP
 #line 109 "lex_sql.l"
-RETURN_TOKEN(LT);
+RETURN_TOKEN(NE);
 	YY_BREAK
 case 73:
 YY_RULE_SETUP
 #line 110 "lex_sql.l"
-RETURN_TOKEN(GE);
+RETURN_TOKEN(LT);
 	YY_BREAK
 case 74:
 YY_RULE_SETUP
 #line 111 "lex_sql.l"
-RETURN_TOKEN(GT);
+RETURN_TOKEN(GE);
 	YY_BREAK
 case 75:
 YY_RULE_SETUP
 #line 112 "lex_sql.l"
-RETURN_TOKEN(ADD);
+RETURN_TOKEN(GT);
 	YY_BREAK
 case 76:
 YY_RULE_SETUP
-#line 114 "lex_sql.l"
-RETURN_TOKEN(DIV);
+#line 113 "lex_sql.l"
+RETURN_TOKEN(ADD);
 	YY_BREAK
 case 77:
 YY_RULE_SETUP
-#line 116 "lex_sql.l"
-yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
+#line 115 "lex_sql.l"
+RETURN_TOKEN(DIV);
 	YY_BREAK
 case 78:
 YY_RULE_SETUP
 #line 117 "lex_sql.l"
-yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
+yylval->string=strdup(yytext); RETURN_TOKEN(DATE_STR);
 	YY_BREAK
 case 79:
 YY_RULE_SETUP
@@ -5502,19 +5431,20 @@ yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 	YY_BREAK
 case 80:
 YY_RULE_SETUP
-#line 120 "lex_sql.l"
-printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
+#line 119 "lex_sql.l"
+yylval->string=strdup(yytext); RETURN_TOKEN(SSS);
 	YY_BREAK
 case 81:
 YY_RULE_SETUP
 #line 121 "lex_sql.l"
+printf("Unknown character [%c]\n",yytext[0]); return yytext[0];
+	YY_BREAK
+case 82:
+YY_RULE_SETUP
+#line 122 "lex_sql.l"
 ECHO;
 	YY_BREAK
-<<<<<<< HEAD
-#line 5443 "lex.yy.c"
-=======
-#line 1390 "lex.yy.c"
->>>>>>> alias finish v1
+#line 5448 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(STR):
 	yyterminate();
@@ -6691,7 +6621,7 @@ void yyfree (void * ptr , yyscan_t yyscanner)
 
 #define YYTABLES_NAME "yytables"
 
-#line 121 "lex_sql.l"
+#line 122 "lex_sql.l"
 
 
 void scan_string(const char *str, yyscan_t scanner) {
