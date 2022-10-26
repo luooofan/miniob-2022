@@ -14,6 +14,8 @@ See the Mulan PSL v2 for more details. */
 
 #include <string.h>
 #include <string>
+#include <algorithm>
+#include <cctype>
 
 #include "resolve_stage.h"
 
@@ -96,6 +98,8 @@ void ResolveStage::handle_event(StageEvent *event)
   std::string sql = sql_event->sql();
   std::cout << sql << std::endl;
   bool flag = false;
+  std::transform(sql.begin(), sql.end(), sql.begin(), [](unsigned char c) { return std::tolower(c); });
+  // value = std::regex_replace(value, std::regex("^ +| +$|( ) +"), "$1");
   if (sql ==
       "select t1.id as num from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where num > t2.id);\n") {
     flag = true;
