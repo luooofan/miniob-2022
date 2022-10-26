@@ -232,19 +232,16 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
       return RC::SUCCESS;
     }
 
-    AttrType left_type = left_cell.attr_type();
-    AttrType right_type = right_cell.attr_type();
-
     // 2. for like. only occur in chars type. no need to concern typecast
     if (LIKE_OP == comp || NOT_LIKE_OP == comp) {
-      assert(CHARS == left_type && CHARS == right_type);
+      assert(CHARS == left_cell.attr_type() && CHARS == right_cell.attr_type());
       std::string raw_reg((const char *)right_cell.data());
       replace_all(raw_reg, "_", "[^']");
       replace_all(raw_reg, "%", "[^']*");
       std::regex reg(raw_reg.c_str(), std::regex_constants::ECMAScript | std::regex_constants::icase);
-      bool res = std::regex_match((const char *)left_cell.data(), reg);
+      bool tmp_res = std::regex_match((const char *)left_cell.data(), reg);
       // std::cout << (const char *)left_cell.data() << " " << raw_reg << " " << res << std::endl;
-      if ((LIKE_OP == comp && !res) || (NOT_LIKE_OP == comp && res)) {
+      if ((LIKE_OP == comp && !tmp_res) || (NOT_LIKE_OP == comp && tmp_res)) {
         res = false;
         return RC::SUCCESS;
       }

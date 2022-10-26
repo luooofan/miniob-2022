@@ -33,7 +33,7 @@ ENDFOREACH (F)
 SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/../bin)
 MESSAGE("Binary directory:" ${EXECUTABLE_OUTPUT_PATH})
 TARGET_SOURCES(obclient PRIVATE ${PRJ_SRC})
-TARGET_LINK_LIBRARIES(obclient common pthread dl)
+TARGET_LINK_LIBRARIES(obclient common pthread dl stdc++ m)
 
 
 # Target 必须在定义 ADD_EXECUTABLE 之后， programs 不受这个限制

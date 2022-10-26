@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #include "sql/expr/expression.h"
 #include "common/lang/string.h"
+#include "common/log/log.h"
 #include "sql/expr/tuple.h"
 #include <unordered_map>
 #include "sql/stmt/select_stmt.h"
@@ -121,7 +122,15 @@ RC BinaryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) const
   TupleCell left_cell;
   TupleCell right_cell;
   RC rc = left_expr_->get_value(tuple, left_cell);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("BinaryExpression left expr get value Failed.");
+    return rc;
+  }
   rc = right_expr_->get_value(tuple, right_cell);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("BinaryExpression left expr get value Failed.");
+    return rc;
+  }
   // calculate
   assert(left_cell.attr_type() != DATES && right_cell.attr_type() != DATES);
   assert(left_cell.attr_type() != CHARS && right_cell.attr_type() != CHARS);
@@ -361,14 +370,17 @@ RC BinaryExpression::create_expression(const Expr *expr, const std::unordered_ma
 {
   assert(BINARY == expr->type);
   bool with_brace = expr->with_brace;
-  Expression *left_expr;
-  Expression *right_expr;
+  Expression *left_expr = nullptr;
+  Expression *right_expr = nullptr;
   RC rc = Expression::create_expression(expr->bexp->left, table_map, tables, left_expr);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("BinaryExpression Create Left Expression Failed. RC = %d", rc);
     return rc;
   }
   rc = Expression::create_expression(expr->bexp->right, table_map, tables, right_expr);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("BinaryExpression Create Right Expression Failed. RC = %d", rc);
+    delete left_expr;
     return rc;
   }
   res_expr = new BinaryExpression(expr->bexp->op, left_expr, right_expr, with_brace, expr->bexp->minus);
@@ -388,6 +400,7 @@ RC AggrFuncExpression::create_expression(const Expr *expr, const std::unordered_
     Expression *tmp_value_exp = nullptr;
     RC rc = Expression::create_expression(expr->afexp->param, table_map, tables, tmp_value_exp);
     if (rc != RC::SUCCESS) {
+      LOG_ERROR("AggrFuncExpression Create Param Expression Failed. RC = %d", rc);
       return rc;
     }
     assert(ExprType::VALUE == tmp_value_exp->type());
@@ -397,9 +410,11 @@ RC AggrFuncExpression::create_expression(const Expr *expr, const std::unordered_
     res_expr = aggr_func_expr;
     return RC::SUCCESS;
   }
+
   Expression *param = nullptr;
   RC rc = Expression::create_expression(expr->afexp->param, table_map, tables, param);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("AggrFuncExpression Create Param Expression Failed. RC = %d", rc);
     return rc;
   }
   assert(nullptr != param && ExprType::FIELD == param->type());
@@ -411,21 +426,28 @@ RC SubQueryExpression::create_expression(const Expr *expr, const std::unordered_
     const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp, Db *db)
 {
   assert(SUBQUERY == expr->type);
-  SubQueryExpression *sub_expr = new SubQueryExpression();
-  Stmt *tmp_stmt;
-  SelectStmt::create(db, *expr->sexp->sub_select, tables, table_map, tmp_stmt);
-  sub_expr->set_sub_query_stmt((SelectStmt *)tmp_stmt);
+  Stmt *tmp_stmt = nullptr;
+  RC rc = SelectStmt::create(db, *expr->sexp->sub_select, tables, table_map, tmp_stmt);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("SubQueryExpression Create SelectStmt Failed");
+    return rc;
+  }
   switch (comp) {
     case EXISTS_OP:
     case NOT_EXISTS:
       break;
     default: {
       if (((SelectStmt *)tmp_stmt)->projects().size() != 1) {
+        delete (SelectStmt *)tmp_stmt;  // TODO necessary to cast ?
         return RC::SQL_SYNTAX;
       }
       break;
     }
   }
+
+  // everything alright
+  SubQueryExpression *sub_expr = new SubQueryExpression();
+  sub_expr->set_sub_query_stmt((SelectStmt *)tmp_stmt);
   res_expr = sub_expr;
   return RC::SUCCESS;
 }

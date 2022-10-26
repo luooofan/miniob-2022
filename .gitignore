@@ -22,4 +22,5 @@ GTAGS
 /src/observer/.vscode/*
 result_tmp/
 miniob_data_test/
+*.pyc
 #*#

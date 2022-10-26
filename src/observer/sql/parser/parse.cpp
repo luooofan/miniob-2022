@@ -232,8 +232,9 @@ void list_expr_init(ListExpr *expr, Value values[], size_t value_num)
 
 void list_expr_destory(ListExpr *expr)
 {
-  // TODO
-  return;
+  for (size_t i = 0; i < expr->list_length; i++) {
+    value_destroy(&expr->list[i]);
+  }
 }
 
 void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
@@ -243,8 +244,8 @@ void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
 
 void sub_query_expr_destory(SubQueryExpr *s_expr)
 {
-  // TODO
-  return;
+  selects_destroy(s_expr->sub_select);
+  s_expr->sub_select = NULL;
 }
 
 void expr_print(Expr *expr, int indent)

@@ -12,9 +12,12 @@ popd
 # make
 mkdir -p build
 pushd build
+set +e
 make clean
-cmake .. -DDEBUG=ON -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+set -e
+cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DENABLE_ASAN=ON
 make format
+make check-clang-tidy
 make -j8
 popd
 
