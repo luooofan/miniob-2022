@@ -83,6 +83,7 @@ typedef struct _Expr {
   SubQueryExpr *sexp;
   ListExpr *lexp;
   int with_brace;
+  char *alias;
 } Expr;
 
 typedef struct _AggrFuncExpr {
@@ -122,14 +123,17 @@ typedef struct _OrderBy {
 } OrderBy;
 
 typedef RelAttr GroupBy;
-typedef char *Relation;
+typedef struct _Relation {
+  char *relation_name;
+  char *alias;
+} Relation;
 
 // struct of select
 typedef struct {
   size_t attr_num;                // Length of attrs in Select clause
   RelAttr attributes[MAX_NUM];    // attrs in Select clause
   size_t relation_num;            // Length of relations in Fro clause
-  char *relations[MAX_NUM];       // relations in From clause
+  Relation relations[MAX_NUM];    // relations in From clause
   size_t condition_num;           // Length of conditions in Where clause
   Condition conditions[MAX_NUM];  // conditions in Where clause
   size_t project_num;             // Length of select clauses
@@ -298,6 +302,7 @@ void binary_expr_set_minus(BinaryExpr *expr);
 void binary_expr_destroy(BinaryExpr *expr);
 
 void expr_print(Expr *expr, int indent);
+void expr_init_alias(Expr *expr, const char *alias_name);
 void expr_init_list(Expr *expr, ListExpr *l_expr);
 void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr);
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr);
@@ -315,6 +320,7 @@ void projectcol_init_star(ProjectCol *projectcol, const char *relation_name);
 void projectcol_init_expr(ProjectCol *projectcol, Expr *expr);
 void projectcol_destroy(ProjectCol *projectcol);
 
+void relation_from_init(Relation *relation, const char *relation_name, const char *alias_name);
 void relation_attr_init(RelAttr *relation_attr, const char *relation_name, const char *attribute_name);
 void relation_attr_destroy(RelAttr *relation_attr);
 
@@ -335,7 +341,6 @@ void selects_init(Selects *selects, ...);
 void selects_append_project(Selects *selects, ProjectCol *project_col);
 void selects_append_projects(Selects *selects, ProjectCol project_col[], size_t project_num);
 void selects_append_attribute(Selects *selects, RelAttr *rel_attr);
-void selects_append_relation(Selects *selects, const char *relation_name);
 void selects_append_froms(Selects *selects, Relation froms[], size_t from_num);
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num);
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num);

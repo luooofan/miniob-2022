@@ -61,8 +61,19 @@ public:
     return with_brace_;
   }
 
+  void set_alias(const std::string &alias)
+  {
+    alias_ = alias;
+  }
+
+  const std::string get_alias() const
+  {
+    return alias_;
+  }
+
 private:
   bool with_brace_ = 0;
+  std::string alias_ = "";
 };
 
 class FieldExpr : public Expression {
