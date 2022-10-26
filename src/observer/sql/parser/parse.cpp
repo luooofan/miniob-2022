@@ -366,6 +366,9 @@ void expr_destroy(Expr *expr)
     default:
       break;
   }
+  if (expr->alias != NULL) {
+    free(expr->alias);
+  }
   expr->with_brace = 0;
 }
 
