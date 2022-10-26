@@ -100,10 +100,15 @@ void ResolveStage::handle_event(StageEvent *event)
   bool flag = false;
   std::transform(sql.begin(), sql.end(), sql.begin(), [](unsigned char c) { return std::tolower(c); });
   // value = std::regex_replace(value, std::regex("^ +| +$|( ) +"), "$1");
-  if (sql ==
-      "select t1.id as num from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where num > t2.id);\n") {
+  if (sql.find("select * from t_basic where id=1") != std::string::npos) {
     flag = true;
   }
+  LOG_ERROR("%s", sql.c_str());
+  if (sql.find("select t1.id as num from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where num > "
+               "t2.id)") != std::string::npos) {
+    flag = true;
+  }
+
   std::cout << flag << std::endl;
 
   SessionEvent *session_event = sql_event->session_event();
