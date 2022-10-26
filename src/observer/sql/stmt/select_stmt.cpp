@@ -86,6 +86,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
   // collect tables in `from` statement
   std::vector<Table *> tables;
   std::unordered_map<std::string, Table *> table_map;
+  std::unordered_map<Table *, std::string> alias_map;
   for (size_t i = 0; i < select_sql.relation_num; i++) {
     const char *table_name = select_sql.relations[i].relation_name;
     const char *alias_name = select_sql.relations[i].alias;
@@ -104,6 +105,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     table_map.insert(std::pair<std::string, Table *>(table_name, table));
     if (alias_name != nullptr) {
       table_map.insert(std::pair<std::string, Table *>(alias_name, table));
+      alias_map.insert(std::pair<Table *, std::string>(table, alias_name));
     }
   }
 
@@ -114,8 +116,30 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     const ProjectCol &project_col = select_sql.projects[i];
     // only *
     if (common::is_blank(project_col.relation_name) && project_col.is_star) {
+
       for (auto it = tables.rbegin(); it != tables.rend(); it++) {
-        wildcard_fields(*it, projects);
+        //     wildcard_fields(*it, projects);
+        auto it2 = alias_map.find(*it);
+        std::string table_name((*it)->name());
+        if (it2 != alias_map.end()) {
+          table_name = it2->second;
+        }
+        Table *table = *it;
+        const TableMeta &table_meta = table->table_meta();
+        const int field_num = table_meta.field_num() - table_meta.extra_filed_num();
+        for (int i = table_meta.sys_field_num(); i < field_num; i++) {
+          if (table_meta.field(i)->visible()) {
+            FieldExpr *tmp_field = new FieldExpr(table, table_meta.field(i));
+            std::string alias;
+            if (tables.size() == 1) {
+              alias = std::string(table_meta.field(i)->name());
+            } else {
+              alias = std::string(table_name) + '.' + std::string(table_meta.field(i)->name());
+            }
+            tmp_field->set_alias(alias);
+            projects.emplace_back(tmp_field);
+          }
+        }
       }
     } else if (!common::is_blank(project_col.relation_name) && project_col.is_star)  // table_id.*
     {
