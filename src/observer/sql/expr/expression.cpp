@@ -337,7 +337,9 @@ RC FieldExpr::create_expression(const Expr *expr, const std::unordered_map<std::
     }
     res_expr = new FieldExpr(table, field_meta, with_brace);
     if (std::string(table_name) != std::string(table->name())) {
-      res_expr->set_alias(std::string(table_name) + "." + std::string(field_name));
+      if (tables.size() != 1) {
+        res_expr->set_alias(std::string(table_name) + "." + std::string(field_name));
+      }
     }
 
     return RC::SUCCESS;
