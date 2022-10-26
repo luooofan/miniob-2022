@@ -42,7 +42,7 @@ public:
 
 public:
   static RC create(Db *db, const Selects &select_sql, const std::vector<Table *> &parent_tables,
-      const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt);
+      const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt, bool flag = false);
 
 public:
   const std::vector<Table *> &tables() const

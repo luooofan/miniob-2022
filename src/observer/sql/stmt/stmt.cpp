@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/select_stmt.h"
 #include <vector>
 
-RC Stmt::create_stmt(Db *db, const Query &query, Stmt *&stmt)
+RC Stmt::create_stmt(Db *db, const Query &query, Stmt *&stmt, bool flag)
 {
   stmt = nullptr;
 
@@ -37,7 +37,7 @@ RC Stmt::create_stmt(Db *db, const Query &query, Stmt *&stmt)
     case SCF_SELECT: {
       std::vector<Table *> tables;
       std::unordered_map<std::string, Table *> table_map;
-      return SelectStmt::create(db, query.sstr.selection, tables, table_map, stmt);
+      return SelectStmt::create(db, query.sstr.selection, tables, table_map, stmt, flag);
     }
     default: {
       LOG_WARN("unknown query command");

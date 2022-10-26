@@ -76,7 +76,7 @@ static void wildcard_fields(Table *table, std::vector<Expression *> &projects)
 }
 
 RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table *> &parent_tables,
-    const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt)
+    const std::unordered_map<std::string, Table *> &parent_table_map, Stmt *&stmt, bool flag)
 {
   if (nullptr == db) {
     LOG_WARN("invalid argument. db is null");
@@ -199,6 +199,8 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     default_table = tables[0];
   }
 
+  if (flag)
+    return RC::INTERNAL;
   RC rc = RC::SUCCESS;
   std::unordered_map<std::string, Table *> temp_table_map = table_map;
   temp_table_map.insert(parent_table_map.begin(), parent_table_map.end());

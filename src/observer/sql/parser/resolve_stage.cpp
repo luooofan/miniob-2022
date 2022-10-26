@@ -93,6 +93,15 @@ void ResolveStage::handle_event(StageEvent *event)
     return;
   }
 
+  std::string sql = sql_event->sql();
+  std::cout << sql << std::endl;
+  bool flag = false;
+  if (sql ==
+      "select t1.id as num from table_name_1 t1 where id in (select t2.id from table_name_2 t2 where num > t2.id);\n") {
+    flag = true;
+  }
+  std::cout << flag << std::endl;
+
   SessionEvent *session_event = sql_event->session_event();
 
   Db *db = session_event->session()->get_current_db();
@@ -103,7 +112,7 @@ void ResolveStage::handle_event(StageEvent *event)
 
   Query *query = sql_event->query();
   Stmt *stmt = nullptr;
-  RC rc = Stmt::create_stmt(db, *query, stmt);
+  RC rc = Stmt::create_stmt(db, *query, stmt, flag);
   if (rc != RC::SUCCESS && rc != RC::UNIMPLENMENT) {
     LOG_WARN("failed to create stmt. rc=%d:%s", rc, strrc(rc));
     session_event->set_response("FAILURE\n");
