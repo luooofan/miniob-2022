@@ -285,71 +285,114 @@ RC Table::rollback_insert(Trx *trx, const RID &rid)
   return rc;
 }
 
-RC Table::insert_record(Trx *trx, Record *record)
+RC Table::insert_record(Trx *trx, int row_num, Record *records)
 {
   RC rc = RC::SUCCESS;
 
-  if (trx != nullptr) {
-    trx->init_trx_info(this, *record);
-  }
-  rc = record_handler_->insert_record(record->data(), table_meta_.record_size(), &record->rid());
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
-    return rc;
-  }
+  // insert data and index
+  for (int i = 0; i < row_num; i++) {
+    Record &current_record = records[i];
+    if (trx != nullptr) {
+      trx->init_trx_info(this, current_record);
+    }
 
-  if (trx != nullptr) {
-    rc = trx->insert_record(this, record);
+    rc = record_handler_->insert_record(current_record.data(), table_meta_.record_size(), &current_record.rid());
     if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to log operation(insertion) to trx");
+      LOG_ERROR("insert record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
 
-      RC rc2 = record_handler_->delete_record(&record->rid());
+      // rollback when insert failed
+      RC rc2 = RC::SUCCESS;
+      for (int j = i - 1; j >= 0; j--) {
+        Record &tmp_record = records[j];
+        rc2 = rollback_insert(trx, tmp_record.rid());
+        if (rc2 != RC::SUCCESS) {
+          LOG_ERROR("failed to rollback insert, rid: %d.%d", tmp_record.rid().page_num, tmp_record.rid().slot_num);
+          break;
+        }
+      }
+      return rc;
+    }
+
+    rc = insert_entry_of_indexes(current_record.data(), current_record.rid());
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("insert index failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+
+      // rollback when insert failed
+      RC rc2 = RC::SUCCESS;
+      rc2 = record_handler_->delete_record(&current_record.rid());
       if (rc2 != RC::SUCCESS) {
-        LOG_ERROR("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-            name(),
-            rc2,
-            strrc(rc2));
+        LOG_ERROR(
+            "failed to rollback insert, rid: %d.%d", current_record.rid().page_num, current_record.rid().slot_num);
+        break;
+      }
+
+      for (int j = i - 1; j >= 0; j--) {
+        Record &tmp_record = records[j];
+        rc2 = rollback_insert(trx, tmp_record.rid());
+        if (rc2 != RC::SUCCESS) {
+          LOG_ERROR("failed to rollback insert, rid: %d.%d", tmp_record.rid().page_num, tmp_record.rid().slot_num);
+          break;
+        }
       }
       return rc;
     }
   }
 
-  rc = insert_entry_of_indexes(record->data(), record->rid());
-  if (rc != RC::SUCCESS) {
-    RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
-    if (rc2 != RC::SUCCESS) {
-      LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-          name(),
-          rc2,
-          strrc(rc2));
+  // after insert all record successfully, do the trx
+  if (trx != nullptr) {
+    for (int i = 0; i < row_num; i++) {
+      Record &current_record = records[i];
+      rc = trx->insert_record(this, &current_record);
+      if (rc != RC::SUCCESS) {
+        LOG_WARN("Failed to log operation(insertion) to trx");
+
+        // rollback trx record
+        RC rc2 = RC::SUCCESS;
+        for (int j = i - 1; j >= 0; j--) {
+          Record &tmp_record = records[j];
+          rc2 = trx->delete_record(this, &tmp_record);
+          if (rc2 != RC::SUCCESS) {
+            LOG_ERROR("failed to rollback trx, rc=%d:%s", rc2, strrc(rc2));
+            break;
+          }
+        }
+
+        // rollback records data and index
+        for (int j = row_num - 1; j >= 0; j--) {
+          Record &tmp_record = records[j];
+          rc2 = rollback_insert(trx, tmp_record.rid());
+          if (rc2 != RC::SUCCESS) {
+            LOG_ERROR("failed to rollback insert, rid: %d.%d", tmp_record.rid().page_num, tmp_record.rid().slot_num);
+            break;
+          }
+        }
+        return rc;
+      }
     }
-    rc2 = record_handler_->delete_record(&record->rid());
-    if (rc2 != RC::SUCCESS) {
-      LOG_PANIC("Failed to rollback record data when insert index entries failed. table name=%s, rc=%d:%s",
-          name(),
-          rc2,
-          strrc(rc2));
-    }
-    if (trx != nullptr) {
-      rc2 = trx->delete_record(this, record);
-    }
-    return rc;
   }
 
+  // write opertions into clog
   if (trx != nullptr) {
-    // append clog record
-    CLogRecord *clog_record = nullptr;
-    rc = clog_manager_->clog_gen_record(
-        CLogType::REDO_INSERT, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), record);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
-      return rc;
-    }
-    rc = clog_manager_->clog_append_record(clog_record);
-    if (rc != RC::SUCCESS) {
-      return rc;
+    for (int i = 0; i < row_num; i++) {
+      Record &current_record = records[i];
+      CLogRecord *clog_record = nullptr;
+      rc = clog_manager_->clog_gen_record(CLogType::REDO_INSERT,
+          trx->get_current_id(),
+          clog_record,
+          name(),
+          table_meta_.record_size(),
+          &current_record);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+        return rc;
+      }
+      rc = clog_manager_->clog_append_record(clog_record);
+      if (rc != RC::SUCCESS) {
+        return rc;
+      }
     }
   }
+
   return rc;
 }
 
@@ -366,71 +409,34 @@ RC Table::recover_insert_record(Record *record)
   return rc;
 }
 
-RC Table::insert_record(Trx *trx, int value_num, const Value *values)
+RC Table::insert_record(Trx *trx, int row_num, int value_num, std::vector<const Value *> &values)
 {
-  if (value_num <= 0 || nullptr == values) {
+  RC rc = RC::SUCCESS;
+  if (row_num <= 0 || value_num <= 0 || nullptr == &values) {
     LOG_ERROR("Invalid argument. table name: %s, value num=%d, values=%p", name(), value_num, values);
     return RC::INVALID_ARGUMENT;
   }
 
-  char *record_data;
-  RC rc = make_record(value_num, values, record_data);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
-    return rc;
-  }
-
-  Record record;
-  record.set_data(record_data);
-  rc = insert_record(trx, &record);
-  delete[] record_data;
-  return rc;
-}
-
-RC Table::insert_record(Trx *trx, int value_num, std::vector<Row> *rows)
-{
-  RC rc = RC::SUCCESS;
-  if (value_num <= 0 || nullptr == rows) {
-    LOG_ERROR("Invalid argument. table name: %s, value num=%d, values=%p", name(), value_num, rows);
-    return RC::INVALID_ARGUMENT;
-  }
-
-  int row_amount = rows->size();
-  std::vector<Record> records_done;
-  for (int i = 0; i < row_amount; i++) {
+  std::vector<Record> records;
+  for (int i = 0; i < row_num; i++) {
+    Record record;
     char *record_data;
-    const Value *values = rows->at(i).values;
-    if (nullptr == values) {
-      LOG_ERROR("Invalid argument. table name: %s, values=%p", name(), values);
-      return RC::INVALID_ARGUMENT;
-    }
-
-    rc = make_record(value_num, values, record_data);
+    rc = make_record(value_num, values[i * value_num], record_data);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to create a record. rc=%d:%s", rc, strrc(rc));
+      for (size_t j = 0; j < records.size(); j++) {
+        delete[] records[j].data();
+      }
       return rc;
     }
-
-    Record record;
     record.set_data(record_data);
-    rc = insert_record(trx, &record);
-
-    // when one record insert failed, delete records inserted just now
-    if (RC::SUCCESS != rc) {
-      LOG_ERROR("Failed to insert a record. rc=%d:%s", rc, strrc(rc));
-
-      for (size_t j = 0; j < records_done.size(); j++) {
-        rc = delete_record(trx, &records_done[j]);
-        if (RC::SUCCESS != rc) {
-          LOG_ERROR("Failed to rollback record [%p]. rc=%d:%s", records_done[j], rc, strrc(rc));
-        }
-      }
-    }
-
-    records_done.push_back(record);
-    delete[] record_data;
+    records.emplace_back(record);
   }
-  records_done.clear();
+
+  rc = insert_record(trx, row_num, records.data());
+  for (size_t i = 0; i < records.size(); i++) {
+    delete[] records[i].data();
+  }
   return rc;
 }
 
@@ -828,7 +834,7 @@ RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value
   return RC::GENERIC_ERROR;
 }
 
-RC Table::update_record(Trx *trx, const char *attr_name, Record *record, Value *value)
+RC Table::update_record(Trx *trx, const char *attr_name, Record *record, const Value *value)
 {
   RC rc = RC::SUCCESS;
   if (trx != nullptr) {

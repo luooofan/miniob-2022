@@ -19,8 +19,8 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "util/typecast.h"
 
-InsertStmt::InsertStmt(Table *table, std::vector<Row> rows, int value_amount)
-    : table_(table), rows_(rows), value_amount_(value_amount)
+InsertStmt::InsertStmt(Table *table, std::vector<const Value *> rows, int row_amount, int value_amount)
+    : table_(table), rows_(rows), row_amount_(row_amount), value_amount_(value_amount)
 {}
 
 RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
@@ -39,7 +39,6 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
   }
 
   // check the fields number
-  // const Value *values = inserts.values;
   const int row_num = inserts.row_num;
   const int value_num = inserts.value_num;
   const TableMeta &table_meta = table->table_meta();
@@ -50,16 +49,15 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
     return RC::SCHEMA_FIELD_MISSING;
   }
 
-  std::vector<Row> rows;
+  std::vector<const Value *> rows;
   for (int i = 0; i < row_num; i++) {
-    const Value *values = inserts.values[i];
-
     // check fields type
     const int sys_field_num = table_meta.sys_field_num();
     for (int j = 0; j < value_num; j++) {
+      const Value *value = &inserts.values[i][j];
       const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const AttrType field_type = field_meta->type();
-      const AttrType value_type = values[j].type;
+      const AttrType value_type = value->type;
       // check null first
       if (AttrType::NULLS == value_type) {
         if (!field_meta->nullable()) {
@@ -81,14 +79,11 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
             value_type);
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
+      rows.push_back(value);
     }
-
-    Row row;
-    row.values = values;
-    rows.push_back(row);
   }
 
   // everything alright
-  stmt = new InsertStmt(table, rows, value_num);
+  stmt = new InsertStmt(table, rows, row_num, value_num);
   return RC::SUCCESS;
 }
