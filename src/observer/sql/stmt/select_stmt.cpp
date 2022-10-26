@@ -115,9 +115,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     }
   }
 
-  if (flag)
-    return RC::INTERNAL;
-  // collect query fields in `select` statement
+    // collect query fields in `select` statement
   // TODO(wbj) check aggrfunc fields
   std::vector<Expression *> projects;
   for (int i = select_sql.project_num - 1; i >= 0; i--) {
@@ -216,6 +214,9 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
       return rc;
     }
   }
+
+  if (flag)
+    return RC::INTERNAL;
 
   OrderByStmt *orderby_stmt = nullptr;
   DEFER_WHEN_NOT_NULL(orderby_stmt);
