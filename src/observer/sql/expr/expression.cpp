@@ -183,20 +183,12 @@ RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &fin
         case 'm': {
           char tmp[3];
           sprintf(tmp, "%d", month);
-          if (1 <= month && month <= 9) {
-            result_date_str += '0';
-            result_date_str += tmp;
-          } else {
-            result_date_str += tmp;
-          }
+          result_date_str += tmp;
           break;
         }
         case 'D': {
           char tmp[3];
           sprintf(tmp, "%d", day);
-          if (1 <= day && day <= 9) {
-            result_date_str += '0';
-          }
           if (10 <= day && day <= 20) {
             result_date_str += tmp;
             result_date_str += "th";
@@ -229,16 +221,11 @@ RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &fin
         case 'd': {
           char tmp[3];
           sprintf(tmp, "%d", day);
-          if (1 <= day && day <= 9) {
-            result_date_str += '0';
-            result_date_str += tmp;
-          } else {
-            result_date_str += tmp;
-          }
+          result_date_str += tmp;
           break;
         }
         default: {
-          return RC::INTERNAL;
+          result_date_str += cell_format_chars[i];
           break;
         }
       }
