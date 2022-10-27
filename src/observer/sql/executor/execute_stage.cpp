@@ -265,7 +265,7 @@ void print_tuple_header(std::ostream &os, const ProjectOperator &oper)
     os << '\n';
   }
 }
-void tuple_to_string(std::ostream &os, const Tuple &tuple)
+RC tuple_to_string(std::ostream &os, const Tuple &tuple)
 {
   TupleCell cell;
   RC rc = RC::SUCCESS;
@@ -284,6 +284,7 @@ void tuple_to_string(std::ostream &os, const Tuple &tuple)
     }
     cell.to_string(os);
   }
+  return rc;
 }
 
 IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_units)
@@ -725,7 +726,11 @@ RC ExecuteStage::do_select(SQLStageEvent *sql_event)
       break;
     }
 
-    tuple_to_string(ss, *tuple);
+    rc = tuple_to_string(ss, *tuple);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("tuple to string failed:%d, %s", rc, strrc(rc));
+      break;
+    }
     ss << std::endl;
   }
 
