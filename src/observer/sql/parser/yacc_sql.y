@@ -849,7 +849,12 @@ update:			/*  update 语句的语法解析树*/
 		}
     ;
 select:				/*  select 语句的语法解析树*/
-    SELECT select_attr FROM from where opt_group_by opt_having opt_order_by SEMICOLON
+    SELECT select_attr SEMICOLON {
+			selects_append_projects(&CONTEXT->ssql->sstr.selection, CONTEXT->projects, CONTEXT->project_length);
+			CONTEXT->ssql->flag=SCF_SELECT;//"select";
+      CONTEXT->project_length=0;
+    }
+    | SELECT select_attr FROM from where opt_group_by opt_having opt_order_by SEMICOLON
 		{
       // printf("THE QUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n\n", $2, $4->from_len, $4->inner_join_conditions_len, $5, $6, $7, $8);
 
@@ -876,7 +881,7 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->from_length=0;
       CONTEXT->project_length=0;
 			CONTEXT->select_length=0;
-			CONTEXT->value_length = 0;
+			CONTEXT->value_length=0; // ???
 	}
 	;
 

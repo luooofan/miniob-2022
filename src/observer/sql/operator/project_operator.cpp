@@ -112,6 +112,39 @@ void gen_project_name(const Expression *expr, bool is_single_table, std::string 
       result_name += ')';
       break;
     }
+    case ExprType::FUNC: {
+      FuncExpression *fexpr = (FuncExpression *)expr;
+      switch (fexpr->get_func_type()) {
+        case FUNC_LENGTH: {
+          result_name += "length(";
+          gen_project_name(fexpr->get_params()[0], is_single_table, result_name);
+          result_name += ")";
+          break;
+        }
+        case FUNC_ROUND: {
+          result_name += "round(";
+          if (fexpr->get_param_size() > 1) {
+            gen_project_name(fexpr->get_params()[0], is_single_table, result_name);
+            result_name += ",";
+            gen_project_name(fexpr->get_params()[1], is_single_table, result_name);
+          } else {
+            gen_project_name(fexpr->get_params()[0], is_single_table, result_name);
+          }
+          result_name += ")";
+          break;
+        }
+        case FUNC_DATE_FORMAT: {
+          result_name += "date_format(";
+          gen_project_name(fexpr->get_params()[0], is_single_table, result_name);
+          result_name += ",";
+          gen_project_name(fexpr->get_params()[1], is_single_table, result_name);
+          result_name += ")";
+          break;
+        }
+        default:
+          break;
+      }
+    }
     default:
       break;
   }

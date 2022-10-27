@@ -184,25 +184,32 @@ RC PredicateOperator::do_predicate(const std::vector<FilterUnit *> &filter_units
 
     // std::cout << "DO PREDICATE: comp : " << comp << std::endl;
 
+    RC rc = RC::SUCCESS;
     if (ExprType::SUBQUERYTYPE == left_expr->type()) {
-      RC rc = get_cell_for_sub_query((const SubQueryExpression *)left_expr, tuple, left_cell);
-      if (RC::SUCCESS != rc) {
+      if (RC::SUCCESS != (rc = get_cell_for_sub_query((const SubQueryExpression *)left_expr, tuple, left_cell))) {
+        LOG_ERROR("Predicate get left cell for sub_query failed. RC = %d:%s", rc, strrc(rc));
         return rc;
       }
     } else {
-      left_expr->get_value(tuple, left_cell);
+      if (RC::SUCCESS != (rc = left_expr->get_value(tuple, left_cell))) {
+        LOG_ERROR("Predicate get left cell failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
     }
     // std::cout << "DO PREDICATE: get_left_cell : ";
     // left_cell.to_string(std::cout);
     // std::cout << std::endl;
 
     if (ExprType::SUBQUERYTYPE == right_expr->type()) {
-      RC rc = get_cell_for_sub_query((const SubQueryExpression *)right_expr, tuple, right_cell);
-      if (RC::SUCCESS != rc) {
+      if (RC::SUCCESS != (rc = get_cell_for_sub_query((const SubQueryExpression *)right_expr, tuple, right_cell))) {
+        LOG_ERROR("Predicate get right cell for sub_query failed. RC = %d:%s", rc, strrc(rc));
         return rc;
       }
     } else {
-      right_expr->get_value(tuple, right_cell);
+      if (RC::SUCCESS != (rc = right_expr->get_value(tuple, right_cell))) {
+        LOG_ERROR("Predicate get right cell failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
     }
     // std::cout << "DO PREDICATE: get_right_cell : ";
     // right_cell.to_string(std::cout);

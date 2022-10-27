@@ -35,6 +35,7 @@ enum class ExprType {
   FIELD,
   VALUE,
   BINARY,
+  FUNC,
   AGGRFUNCTION,
   SUBQUERYTYPE,
   SUBLISTTYPE,
@@ -175,6 +176,83 @@ public:
 
 private:
   TupleCell tuple_cell_;
+};
+
+class FuncExpression : public Expression {
+public:
+  FuncExpression() = default;
+  FuncExpression(FuncType func_type, int param_size, Expression *param1, Expression *param2, bool with_brace)
+      : func_type_(func_type), param_size_(param_size)
+  {
+    if (with_brace) {
+      set_with_brace();
+    }
+    if (param1 != NULL) {
+      params_expr_.emplace_back(param1);
+    }
+    if (param2 != NULL) {
+      params_expr_.emplace_back(param2);
+    }
+  }
+  virtual ~FuncExpression() = default;
+
+  RC get_func_length_value(const Tuple &tuple, TupleCell &final_cell) const;
+
+  RC get_func_round_value(const Tuple &tuple, TupleCell &final_cell) const;
+
+  RC get_func_data_format_value(const Tuple &tuple, TupleCell &final_cell) const;
+
+  RC get_value(const Tuple &tuple, TupleCell &final_cell) const override
+  {
+    RC rc = RC::SUCCESS;
+    switch (func_type_) {
+      case FUNC_LENGTH: {
+        rc = get_func_length_value(tuple, final_cell);
+        break;
+      }
+      case FUNC_ROUND: {
+        rc = get_func_round_value(tuple, final_cell);
+        break;
+      }
+      case FUNC_DATE_FORMAT: {
+        rc = get_func_data_format_value(tuple, final_cell);
+        break;
+      }
+      default:
+        break;
+    }
+    return rc;
+  }
+
+  ExprType type() const override
+  {
+    return ExprType::FUNC;
+  }
+
+  void to_string(std::ostream &os) const override
+  {}
+
+  FuncType get_func_type()
+  {
+    return func_type_;
+  }
+
+  std::vector<Expression *> get_params()
+  {
+    return params_expr_;
+  }
+
+  int get_param_size()
+  {
+    return param_size_;
+  }
+  static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
+      const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
+
+private:
+  FuncType func_type_;
+  std::vector<Expression *> params_expr_;
+  int param_size_;
 };
 
 class BinaryExpression : public Expression {
@@ -412,7 +490,8 @@ public:
     return tuple_cells_;
   }
 
-  void to_string(std::ostream &os) const override{};
+  void to_string(std::ostream &os) const override
+  {}
 
   static RC create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
       const std::vector<Table *> &tables, Expression *&res_expr, CompOp comp = NO_OP, Db *db = nullptr);
