@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by Wangyunlai on 2022/07/05.
 //
 
+#include <cmath>
 #include <iomanip>
 #include "sql/expr/expression.h"
 #include "common/lang/string.h"
@@ -54,12 +55,19 @@ RC FuncExpression::get_func_round_value(const Tuple &tuple, TupleCell &final_cel
     }
     float cell_float = *(float *)(param_expr_cell.data());
     int cell_precision = *(int *)(param_expr_precision_cell.data());
-    std::stringstream ss;
-    ss << std::fixed << std::setprecision(cell_precision) << cell_float;
-    ss >> cell_float;
+    auto inner_round = [](float f, int precision) {
+      // std::cout << "Before: " << std::setprecision(12) << f << std::endl;
+      std::stringstream ss;
+      ss << std::fixed << std::setprecision(precision) << f;
+      ss >> f;
+      // std::cout << "After: " << std::setprecision(12) << f << std::endl;
+      return f;
+    };
+    *(uint32_t *)&cell_float += 1;
+    cell_float = inner_round(cell_float, cell_precision);
+    // std::cout << cell_float << std::endl;
     float *result_float = new float(cell_float);
     final_cell.set_type(FLOATS);
-    final_cell.set_length(sizeof(float));
     final_cell.set_data((char *)(result_float));
   } else {
     Expression *param_expr = *params_expr_.begin();
@@ -74,7 +82,6 @@ RC FuncExpression::get_func_round_value(const Tuple &tuple, TupleCell &final_cel
     ss >> cell_float;
     float *result_float = new float(cell_float);
     final_cell.set_type(FLOATS);
-    final_cell.set_length(sizeof(float));
     final_cell.set_data((char *)(result_float));
   }
   return RC::SUCCESS;
