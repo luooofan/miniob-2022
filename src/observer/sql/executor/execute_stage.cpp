@@ -31,6 +31,7 @@ See the Mulan PSL v2 for more details. */
 #include "event/session_event.h"
 #include "sql/expr/expression.h"
 #include "sql/expr/tuple.h"
+#include "sql/operator/dual_table_scan_operator.h"
 #include "sql/operator/groupby_operator.h"
 #include "sql/operator/operator.h"
 #include "sql/operator/table_scan_operator.h"
@@ -528,21 +529,23 @@ RC ExecuteStage::gen_physical_plan(
 {
   RC rc = RC::SUCCESS;
   bool is_single_table = true;
-
-  Operator *scan_oper = NULL;
+  Operator *scan_oper = nullptr;
   if (select_stmt->tables().size() > 1) {
     rc = gen_join_operator(select_stmt, scan_oper, delete_opers);
     if (RC::SUCCESS != rc) {
       return rc;
     }
     is_single_table = false;
-  } else {
+  } else if (select_stmt->tables().size() == 1) {
     if (nullptr != select_stmt->filter_stmt()) {
       scan_oper = try_to_create_index_scan_operator(select_stmt->filter_stmt()->filter_units());
     }
     if (nullptr == scan_oper) {
       scan_oper = new TableScanOperator(select_stmt->tables()[0]);
     }
+    delete_opers.push_back(scan_oper);
+  } else {
+    scan_oper = new DualTableScanOperator();
     delete_opers.push_back(scan_oper);
   }
 
