@@ -120,6 +120,9 @@ RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &fin
         case 'y': {
           char tmp[5];
           sprintf(tmp, "%d", year % 100);
+          if (0 <= (year % 100) && (year % 100) <= 9) {
+            result_date_str += "0";
+          }
           result_date_str += tmp;
           break;
         }
@@ -183,6 +186,9 @@ RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &fin
         case 'm': {
           char tmp[3];
           sprintf(tmp, "%d", month);
+          if (0 <= month && month <= 9) {
+            result_date_str += "0";
+          }
           result_date_str += tmp;
           break;
         }
@@ -221,6 +227,9 @@ RC FuncExpression::get_func_data_format_value(const Tuple &tuple, TupleCell &fin
         case 'd': {
           char tmp[3];
           sprintf(tmp, "%d", day);
+          if (0 <= day && day <= 9) {
+            result_date_str += "0";
+          }
           result_date_str += tmp;
           break;
         }
