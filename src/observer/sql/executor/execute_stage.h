@@ -24,6 +24,7 @@ See the Mulan PSL v2 for more details. */
 class SQLStageEvent;
 class SessionEvent;
 class SelectStmt;
+class FilterUnit;
 
 class ExecuteStage : public common::Stage {
 public:
@@ -59,6 +60,7 @@ protected:
       const SelectStmt *select_stmt, Operator *&result_op, std::vector<Operator *> &delete_opers);
   static RC gen_physical_plan(
       const SelectStmt *select_stmt, ProjectOperator *&op, std::vector<Operator *> &delete_opers);
+  static RC gen_physical_plan_for_subquery(const FilterUnit *filter, std::vector<Operator *> &delete_opers);
 
 protected:
 private:

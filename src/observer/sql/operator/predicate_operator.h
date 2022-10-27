@@ -37,6 +37,7 @@ public:
   Tuple *current_tuple() override;
   // int tuple_cell_num() const override;
   // RC tuple_cell_spec_at(int index, TupleCellSpec &spec) const override;
+  static RC do_predicate(const FilterUnit *filter_unit, Tuple &tuple, bool &res);
   static RC do_predicate(const std::vector<FilterUnit *> &filter_units, Tuple &tuple, bool &res);
 
 private:

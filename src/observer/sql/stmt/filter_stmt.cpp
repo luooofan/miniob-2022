@@ -90,6 +90,29 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
     return RC::INVALID_ARGUMENT;
   }
 
+  if (AND_OP == comp || OR_OP == comp) {
+    assert(ExpType::COND == condition.left->type);
+    assert(ExpType::COND == condition.right->type);
+    FilterUnit *left_unit = nullptr;
+    FilterUnit *right_unit = nullptr;
+    rc = create_filter_unit(db, default_table, tables, *condition.left->cexp, left_unit);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("filter unit create left expression failed");
+      return rc;
+    }
+    rc = create_filter_unit(db, default_table, tables, *condition.right->cexp, right_unit);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("filter unit create left expression failed");
+      delete left_unit;
+      return rc;
+    }
+    filter_unit = new FilterUnit;
+    filter_unit->set_comp(comp);
+    filter_unit->set_left_unit(left_unit);
+    filter_unit->set_right_unit(right_unit);
+    return rc;
+  }
+
   Expression *left = nullptr;
   Expression *right = nullptr;
   rc = Expression::create_expression(condition.left, *tables, std::vector<Table *>{default_table}, left, comp, db);
@@ -100,6 +123,7 @@ RC FilterStmt::create_filter_unit(Db *db, Table *default_table, std::unordered_m
   rc = Expression::create_expression(condition.right, *tables, std::vector<Table *>{default_table}, right, comp, db);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("filter unit create right expression failed");
+    delete left;
     return rc;
   }
   filter_unit = new FilterUnit;

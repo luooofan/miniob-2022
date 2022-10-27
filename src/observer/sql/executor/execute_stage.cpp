@@ -43,6 +43,7 @@ See the Mulan PSL v2 for more details. */
 #include "sql/operator/project_operator.h"
 #include "sql/operator/join_operator.h"
 #include "sql/operator/sort_operator.h"
+#include "sql/parser/parse_defs.h"
 #include "sql/stmt/groupby_stmt.h"
 #include "sql/stmt/stmt.h"
 #include "sql/stmt/select_stmt.h"
@@ -303,6 +304,10 @@ IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_u
       continue;
     }
 
+    if (AND_OP == filter_unit->comp() || OR_OP == filter_unit->comp()) {
+      continue;
+    }
+
     Expression *left = filter_unit->left();
     Expression *right = filter_unit->right();
     if (left->type() == ExprType::FIELD && right->type() == ExprType::VALUE) {
@@ -421,6 +426,7 @@ IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_u
   return oper;
 }
 
+// TODO(wbj) have to reconsider this function
 std::unordered_map<Table *, std::unique_ptr<FilterUnits>> split_filters(
     const std::vector<Table *> &tables, FilterStmt *filter_stmt)
 {
@@ -432,6 +438,10 @@ std::unordered_map<Table *, std::unique_ptr<FilterUnits>> split_filters(
     return res;
   }
   for (auto filter : filter_stmt->filter_units()) {
+    // TODO(wbj)
+    if (CompOp::AND_OP == filter->comp() || CompOp::OR_OP == filter->comp()) {
+      continue;
+    }
     Expression *left = filter->left();
     Expression *right = filter->right();
     if (ExprType::FIELD == left->type() && ExprType::VALUE == right->type()) {
@@ -457,7 +467,7 @@ RC ExecuteStage::gen_join_operator(
   std::list<Table *> table_list;
   {
     const auto &tables = select_stmt->tables();
-    FilterStmt *filter_stmt = select_stmt->filter_stmt();
+    FilterStmt *filter_stmt = select_stmt->filter_stmt();  // maybe null
     auto table_filters_ht = split_filters(tables, filter_stmt);
     for (std::vector<Table *>::size_type i = 0; i < tables.size(); i++) {
       Operator *scan_oper = try_to_create_index_scan_operator(*table_filters_ht[tables[i]]);
@@ -473,9 +483,9 @@ RC ExecuteStage::gen_join_operator(
   std::unordered_set<const Table *> table_set;
   table_set.insert(table_list.front());
   table_list.pop_front();
-  std::vector<FilterUnit *> filter_units;
-  if (nullptr != select_stmt->filter_stmt()) {
-    filter_units = select_stmt->filter_stmt()->filter_units();
+  std::vector<FilterUnit *> filter_units;  // push down inner join on filter. cond and cond and ...
+  if (nullptr != select_stmt->inner_join_filter_stmt()) {
+    filter_units = select_stmt->inner_join_filter_stmt()->filter_units();
   }
 
   while (oper_store.size() > 1) {
@@ -499,6 +509,7 @@ RC ExecuteStage::gen_join_operator(
     for (auto it = filter_units.begin(); it != filter_units.end();) {
       auto unit = *it;
       bool addable = true;
+      assert(CompOp::AND_OP != unit->comp() && CompOp::OR_OP != unit->comp());
       Expression *left_expr = unit->left();
       if (ExprType::FIELD == left_expr->type()) {
         if (0 == table_set.count(((FieldExpr *)left_expr)->table())) {
@@ -524,6 +535,36 @@ RC ExecuteStage::gen_join_operator(
   return RC::SUCCESS;
 }
 
+RC ExecuteStage::gen_physical_plan_for_subquery(const FilterUnit *filter, std::vector<Operator *> &delete_opers)
+{
+  RC rc = RC::SUCCESS;
+  // process sub query
+  auto process_sub_query_expr = [&](Expression *expr) {
+    if (ExprType::SUBQUERYTYPE == expr->type()) {
+      auto sub_query_expr = (SubQueryExpression *)expr;
+      const SelectStmt *sub_select = sub_query_expr->get_sub_query_stmt();
+      ProjectOperator *sub_project = nullptr;
+      if (RC::SUCCESS != (rc = gen_physical_plan(sub_select, sub_project, delete_opers))) {
+        return rc;
+      }
+      assert(nullptr != sub_project);
+      sub_query_expr->set_sub_query_top_oper(sub_project);
+    }
+    return RC::SUCCESS;
+  };
+
+  if (CompOp::AND_OP == filter->comp() || CompOp::OR_OP == filter->comp()) {
+    if (RC::SUCCESS != (rc = gen_physical_plan_for_subquery(filter->left_unit(), delete_opers))) {
+      return rc;
+    }
+    return gen_physical_plan_for_subquery(filter->right_unit(), delete_opers);
+  }
+
+  if (RC::SUCCESS != (rc = process_sub_query_expr(filter->left()))) {
+    return rc;
+  }
+  return process_sub_query_expr(filter->right());
+}
 // remember to delete these operators
 RC ExecuteStage::gen_physical_plan(
     const SelectStmt *select_stmt, ProjectOperator *&op, std::vector<Operator *> &delete_opers)
@@ -561,25 +602,8 @@ RC ExecuteStage::gen_physical_plan(
     top_op = pred_oper;
     delete_opers.emplace_back(pred_oper);
 
-    // process sub query
-    auto process_sub_query = [&](Expression *expr) {
-      if (ExprType::SUBQUERYTYPE == expr->type()) {
-        auto sub_query_expr = (SubQueryExpression *)expr;
-        const SelectStmt *sub_select = sub_query_expr->get_sub_query_stmt();
-        ProjectOperator *sub_project = nullptr;
-        if (RC::SUCCESS != (rc = gen_physical_plan(sub_select, sub_project, delete_opers))) {
-          return rc;
-        }
-        assert(nullptr != sub_project);
-        sub_query_expr->set_sub_query_top_oper(sub_project);
-      }
-      return RC::SUCCESS;
-    };
     for (auto unit : select_stmt->filter_stmt()->filter_units()) {
-      if (RC::SUCCESS != (rc = process_sub_query(unit->left()))) {
-        return rc;
-      }
-      if (RC::SUCCESS != (rc = process_sub_query(unit->right()))) {
+      if (RC::SUCCESS != (rc = gen_physical_plan_for_subquery(unit, delete_opers))) {
         return rc;
       }
     }
