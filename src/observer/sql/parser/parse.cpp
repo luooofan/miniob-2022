@@ -206,12 +206,6 @@ void condition_init(Condition *condition, CompOp op, Expr *left_expr, Expr *righ
   condition->right = right_expr;
   condition->comp = op;
 }
-void condition_init_with_null(Condition *condition, CompOp op, Expr *left_expr)
-{
-  condition->comp = op;
-  condition->left = left_expr;
-  condition->right = NULL;
-}
 void condition_destroy(Condition *condition)
 {
   if (NULL != condition->left) {
@@ -224,16 +218,18 @@ void condition_destroy(Condition *condition)
 
 void list_expr_init(ListExpr *expr, Value values[], size_t value_num)
 {
-  expr->list_length = value_num;
   for (size_t i = 0; i < value_num; i++) {
     expr->list[i] = values[i];
   }
+  expr->list_length = value_num;
 }
 
 void list_expr_destory(ListExpr *expr)
 {
-  // TODO
-  return;
+  for (size_t i = 0; i < expr->list_length; i++) {
+    value_destroy(&expr->list[i]);
+  }
+  expr->list_length = 0;
 }
 
 void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
@@ -243,8 +239,7 @@ void sub_query_expr_init(SubQueryExpr *s_expr, Selects *sub_select)
 
 void sub_query_expr_destory(SubQueryExpr *s_expr)
 {
-  // TODO
-  return;
+  selects_destroy(s_expr->sub_select);
 }
 
 void expr_print(Expr *expr, int indent)
@@ -268,77 +263,61 @@ void expr_init_alias(Expr *expr, const char *alias_name)
   }
 }
 
-void expr_init_list(Expr *expr, ListExpr *l_expr)
+void expr_init(Expr *expr)
 {
-  expr->type = ExpType::SUBLIST;
-  expr->lexp = l_expr;
+  expr->type = ExpType::EXP_TYPE_NUM;
+  expr->lexp = NULL;
   expr->sexp = NULL;
   expr->afexp = NULL;
   expr->fexp = NULL;
   expr->bexp = NULL;
   expr->uexp = NULL;
   expr->alias = NULL;
+  expr->cexp = NULL;
   expr->with_brace = 0;
+}
+
+void expr_init_condition(Expr *expr, Condition *c_expr)
+{
+  expr_init(expr);
+  expr->type = ExpType::COND;
+  expr->cexp = c_expr;
+}
+void expr_init_list(Expr *expr, ListExpr *l_expr)
+{
+  expr_init(expr);
+  expr->type = ExpType::SUBLIST;
+  expr->lexp = l_expr;
 }
 void expr_init_sub_query(Expr *expr, SubQueryExpr *s_expr)
 {
+  expr_init(expr);
   expr->type = ExpType::SUBQUERY;
   expr->sexp = s_expr;
-  expr->afexp = NULL;
-  expr->fexp = NULL;
-  expr->bexp = NULL;
-  expr->uexp = NULL;
-  expr->lexp = NULL;
-  expr->alias = NULL;
-  expr->with_brace = 0;
 }
 void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr)
 {
+  expr_init(expr);
   expr->type = ExpType::AGGRFUNC;
   expr->afexp = f_expr;
-  expr->fexp = NULL;
-  expr->bexp = NULL;
-  expr->uexp = NULL;
-  expr->sexp = NULL;
-  expr->lexp = NULL;
-  expr->alias = NULL;
-  expr->with_brace = 0;
 }
 void expr_init_func(Expr *expr, FuncExpr *f_expr)
 {
+  expr_init(expr);
   expr->type = ExpType::FUNC;
-  expr->afexp = NULL;
   expr->fexp = f_expr;
-  expr->bexp = NULL;
-  expr->uexp = NULL;
-  expr->sexp = NULL;
-  expr->lexp = NULL;
-  expr->alias = NULL;
-  expr->with_brace = 0;
 }
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr)
 {
+  expr_init(expr);
   expr->type = ExpType::UNARY;
   expr->uexp = u_expr;
-  expr->bexp = NULL;
-  expr->fexp = NULL;
-  expr->afexp = NULL;
-  expr->sexp = NULL;
-  expr->lexp = NULL;
-  expr->alias = NULL;
-  expr->with_brace = 0;
 }
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr)
 {
+  expr_init(expr);
   expr->type = ExpType::BINARY;
   expr->bexp = b_expr;
-  expr->uexp = NULL;
-  expr->fexp = NULL;
-  expr->afexp = NULL;
-  expr->sexp = NULL;
-  expr->lexp = NULL;
-  expr->alias = NULL;
-  expr->with_brace = 0;
 }
 void expr_set_with_brace(Expr *expr)
 {
@@ -355,6 +334,9 @@ void expr_destroy(Expr *expr)
       binary_expr_destroy(expr->bexp);
       expr->bexp = NULL;
       break;
+    case ExpType::COND:
+      condition_destroy(expr->cexp);
+      break;
     case ExpType::FUNC:
       func_expr_destory(expr->fexp);
       expr->fexp = NULL;
@@ -363,6 +345,11 @@ void expr_destroy(Expr *expr)
       aggr_func_expr_destory(expr->afexp);
       expr->afexp = NULL;
       break;
+    case ExpType::SUBQUERY:
+      sub_query_expr_destory(expr->sexp);
+      break;
+    case ExpType::SUBLIST:
+      list_expr_destory(expr->lexp);
     default:
       break;
   }
@@ -502,6 +489,16 @@ void selects_append_froms(Selects *selects, Relation froms[], size_t from_num)
   selects->relation_num = from_num;
 }
 
+void selects_set_where_condition(Selects *selects, Expr *expr)
+{
+  if (NULL != expr) {
+    selects->has_where = 1;
+    assert(COND == expr->type && NULL != expr->cexp);
+    selects->where_condition = *expr->cexp;
+  } else {
+    selects->has_where = 0;
+  }
+}
 void selects_append_conditions(Selects *selects, Condition conditions[], size_t condition_num)
 {
   assert(condition_num <= sizeof(selects->conditions) / sizeof(selects->conditions[0]));
@@ -556,6 +553,11 @@ void selects_destroy(Selects *selects)
     condition_destroy(&selects->conditions[i]);
   }
   selects->condition_num = 0;
+
+  if (selects->has_where) {
+    condition_destroy(&selects->where_condition);
+  }
+  selects->has_where = 0;
 
   for (size_t i = 0; i < selects->project_num; i++) {
     projectcol_destroy(&selects->projects[i]);

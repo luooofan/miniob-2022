@@ -95,45 +95,46 @@ enum yytokentype {
   FROM = 302,
   WHERE = 303,
   AND = 304,
-  SET = 305,
-  ON = 306,
-  LOAD = 307,
-  DATA = 308,
-  INFILE = 309,
-  NOT = 310,
-  LIKE = 311,
-  UNIQUE = 312,
-  ADD = 313,
-  SUB = 314,
-  MUL = 315,
-  DIV = 316,
-  IS = 317,
-  NULL_VALUE = 318,
-  NULLABLE = 319,
-  EQ = 320,
-  LT = 321,
-  GT = 322,
-  LE = 323,
-  GE = 324,
-  NE = 325,
-  LENGTH = 326,
-  ROUND = 327,
-  DATE_FORMAT = 328,
-  NUMBER = 329,
-  FLOAT = 330,
-  ID = 331,
-  PATH = 332,
-  SSS = 333,
-  STAR = 334,
-  STRING_V = 335,
-  DATE_STR = 336
+  OR = 305,
+  SET = 306,
+  ON = 307,
+  LOAD = 308,
+  DATA = 309,
+  INFILE = 310,
+  NOT = 311,
+  LIKE = 312,
+  UNIQUE = 313,
+  ADD = 314,
+  SUB = 315,
+  MUL = 316,
+  DIV = 317,
+  IS = 318,
+  NULL_VALUE = 319,
+  NULLABLE = 320,
+  EQ = 321,
+  LT = 322,
+  GT = 323,
+  LE = 324,
+  GE = 325,
+  NE = 326,
+  LENGTH = 327,
+  ROUND = 328,
+  DATE_FORMAT = 329,
+  NUMBER = 330,
+  FLOAT = 331,
+  ID = 332,
+  PATH = 333,
+  SSS = 334,
+  STAR = 335,
+  STRING_V = 336,
+  DATE_STR = 337
 };
 #endif
 
 /* Value type.  */
 #if !defined YYSTYPE && !defined YYSTYPE_IS_DECLARED
 union YYSTYPE {
-#line 170 "yacc_sql.y"
+#line 167 "yacc_sql.y"
 
   struct _Attr *attr;
   struct _Condition *condition1;
@@ -146,6 +147,7 @@ union YYSTYPE {
   struct _Expr *exp5;
   struct _Expr *exp6;
   struct _Expr *exp7;
+  struct _Expr *exp8;
   struct _FromInfo *from_info;
   char *string;
   int number;
@@ -154,7 +156,7 @@ union YYSTYPE {
   int cur_len;
   int comp_op;
 
-#line 160 "yacc_sql.tab.h"
+#line 162 "yacc_sql.tab.h"
 };
 typedef union YYSTYPE YYSTYPE;
 #define YYSTYPE_IS_TRIVIAL 1

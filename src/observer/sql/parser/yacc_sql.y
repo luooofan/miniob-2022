@@ -15,21 +15,19 @@
 
 typedef struct ParserContext {
   Query * ssql;
-  size_t select_length;
-  size_t condition_length;
-  size_t having_length;
-  size_t orderby_length;
-  size_t groupby_length;
-  size_t aggrfunc_length;
-  size_t from_length;
   size_t value_length;
-  size_t project_length;
   Value values[MAX_NUM];
+  size_t condition_length;
   Condition conditions[MAX_NUM];
+  size_t having_length;
   Condition havings[MAX_NUM];
+  size_t orderby_length;
   OrderBy orderbys[MAX_NUM];
+  size_t groupby_length;
   GroupBy groupbys[MAX_NUM];
+  size_t from_length;
   Relation froms[MAX_NUM];
+  size_t project_length;
   ProjectCol projects[MAX_NUM];
   CompOp comp;
 	char id[MAX_NUM];
@@ -71,11 +69,9 @@ void yyerror(yyscan_t scanner, const char *str)
   context->condition_length = 0;
   context->orderby_length = 0;
   context->from_length = 0;
-  context->select_length = 0;
   context->value_length = 0;
   context->having_length = 0;
   context->groupby_length = 0;
-  context->aggrfunc_length = 0;
   context->project_length = 0;
   context->ssql->sstr.insertion.value_num = 0;
   printf("parse sql failed. error=%s", str);
@@ -142,6 +138,7 @@ ParserContext *get_context(yyscan_t scanner)
         FROM
         WHERE
         AND
+        OR
         SET
         ON
         LOAD
@@ -179,6 +176,7 @@ ParserContext *get_context(yyscan_t scanner)
   struct _Expr* exp5;
   struct _Expr* exp6;
   struct _Expr* exp7;
+  struct _Expr* exp8;
   struct _FromInfo* from_info;
   char *string;
   int number;
@@ -199,7 +197,6 @@ ParserContext *get_context(yyscan_t scanner)
 //非终结符
 
 %type <number> type;
-%type <condition1> condition;
 %type <value1> value;
 %type <number> number;
 %type <exp1> unary_expr;
@@ -224,6 +221,9 @@ ParserContext *get_context(yyscan_t scanner)
 %type <cur_len> sort_list;
 %type <cur_len> value_list;
 %type <comp_op> comOp;
+%type <exp8> select_where;
+%type <exp8> condition_and;
+%type <exp8> condition_or;
 
 %%
 
@@ -755,7 +755,7 @@ func_expr:
     ;
 
 sub_select:
-    LBRACE SELECT select_attr FROM from where opt_group_by opt_having opt_order_by RBRACE {
+    LBRACE SELECT select_attr FROM from select_where opt_group_by opt_having opt_order_by RBRACE {
       // printf("THE SUBQUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n", $3, $5->from_len, $5->inner_join_conditions_len, $6, $7, $8, $9);
 
       Selects * sub_select = (Selects *)malloc(sizeof(Selects));
@@ -767,8 +767,11 @@ sub_select:
       size_t inner_join_conditions_len = $5->inner_join_conditions_len;
 			selects_append_froms(sub_select,  &CONTEXT->froms[CONTEXT->from_length - from_len], from_len);
 
-      size_t all_condition_len = $6 + inner_join_conditions_len;
-			selects_append_conditions(sub_select, &CONTEXT->conditions[CONTEXT->condition_length - all_condition_len], all_condition_len);
+      // fill inner join conditions
+			selects_append_conditions(sub_select, &CONTEXT->conditions[CONTEXT->condition_length - inner_join_conditions_len], inner_join_conditions_len);
+
+      // fill where conditions
+      selects_set_where_condition(sub_select, $6);
 
 			selects_append_groupbys(sub_select, &CONTEXT->groupbys[CONTEXT->groupby_length - $7], $7);
 
@@ -781,13 +784,11 @@ sub_select:
 			CONTEXT->orderby_length -= $9;
       CONTEXT->having_length -= $8;
 			CONTEXT->groupby_length -= $7;
-			CONTEXT->condition_length -= all_condition_len;
+			CONTEXT->condition_length -= inner_join_conditions_len;
       CONTEXT->from_length -= from_len;
       CONTEXT->project_length -= $3;
-			CONTEXT->select_length=0;
 			CONTEXT->value_length = 0;
 
-      // TODO cons expr
       SubQueryExpr * s_expr = malloc(sizeof(SubQueryExpr));
       sub_query_expr_init(s_expr, sub_select);
       Expr* expr = malloc(sizeof(Expr));
@@ -854,7 +855,7 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
       CONTEXT->project_length=0;
     }
-    | SELECT select_attr FROM from where opt_group_by opt_having opt_order_by SEMICOLON
+    | SELECT select_attr FROM from select_where opt_group_by opt_having opt_order_by SEMICOLON
 		{
       // printf("THE QUERY has %d projects %d froms %d inner_join_conditions %d conditions %d groupbys %d havings %d orderbys\n\n", $2, $4->from_len, $4->inner_join_conditions_len, $5, $6, $7, $8);
 
@@ -864,6 +865,8 @@ select:				/*  select 语句的语法解析树*/
 
 			selects_append_conditions(&CONTEXT->ssql->sstr.selection, CONTEXT->conditions, CONTEXT->condition_length);
 
+      selects_set_where_condition(&CONTEXT->ssql->sstr.selection, $5);
+
 			selects_append_orderbys(&CONTEXT->ssql->sstr.selection, CONTEXT->orderbys, CONTEXT->orderby_length);
 
 			selects_append_groupbys(&CONTEXT->ssql->sstr.selection, CONTEXT->groupbys, CONTEXT->groupby_length);
@@ -871,7 +874,6 @@ select:				/*  select 语句的语法解析树*/
 			selects_append_havings(&CONTEXT->ssql->sstr.selection, CONTEXT->havings, CONTEXT->having_length);
 
 			CONTEXT->ssql->flag=SCF_SELECT;//"select";
-			// CONTEXT->ssql->sstr.selection.attr_num = CONTEXT->select_length;
 
 			//临时变量清零
       CONTEXT->having_length=0;
@@ -880,7 +882,6 @@ select:				/*  select 语句的语法解析树*/
 			CONTEXT->condition_length=0;
 			CONTEXT->from_length=0;
       CONTEXT->project_length=0;
-			CONTEXT->select_length=0;
 			CONTEXT->value_length=0; // ???
 	}
 	;
@@ -1044,6 +1045,52 @@ where:
         $$ = $3 + 1;
 			}
     ;
+select_where:
+     /* empty */ {
+      $$ = NULL;
+     }
+     | WHERE condition_or {
+      $$ = $2;
+     }
+     ;
+
+condition_or:
+     condition_and {
+      $$ = $1;
+     }
+     | condition_or OR condition_and {
+      Condition * c_expr = malloc(sizeof(Condition));
+      condition_init(c_expr, OR_OP, $1, $3);
+      Expr * expr = malloc(sizeof(Expr));
+      expr_init_condition(expr, c_expr);
+
+      $$ = expr;
+     }
+     ;
+
+condition_and:
+     condition {
+      Expr * expr = malloc(sizeof(Expr));
+      Condition * c_expr = malloc(sizeof(Condition));
+      *c_expr = CONTEXT->conditions[--CONTEXT->condition_length]; // make condition in where clause would not appear in CONTEXT->condtitions
+      expr_init_condition(expr, c_expr);
+      $$ = expr;
+     }
+     | condition_and AND condition {
+      Condition * rc_expr = malloc(sizeof(Condition));
+      *rc_expr = CONTEXT->conditions[--CONTEXT->condition_length]; // make condition in where clause would not appear in CONTEXT->condtitions
+      Expr * right_expr = malloc(sizeof(Expr));
+      expr_init_condition(right_expr, rc_expr);
+
+      Condition * c_expr = malloc(sizeof(Condition));
+      condition_init(c_expr, AND_OP, $1, right_expr);
+      Expr * expr = malloc(sizeof(Expr));
+      expr_init_condition(expr, c_expr);
+
+      $$ = expr;
+     }
+     ;
+
 condition_list:
     /* empty */ {
       $$ = 0;
