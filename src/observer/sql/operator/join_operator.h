@@ -51,7 +51,7 @@ public:
 
 private:
   RC fetch_right_table();
-  void filter_right_table();
+  RC filter_right_table();
 
 private:
   Operator *left_ = nullptr;

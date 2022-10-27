@@ -19,21 +19,26 @@ RC JoinOperator::open()
   return rc;
 }
 
-void JoinOperator::filter_right_table()
+RC JoinOperator::filter_right_table()
 {
+  RC rc = RC::SUCCESS;
   filtered_rht_.clear();
   rht_it_ = filtered_rht_.end();
   for (size_t i = 0; i < rht_.size(); ++i) {
     CompoundRecord temp(rht_[i]);
     tuple_.set_right_record(temp);
     bool res = false;
-    assert(RC::SUCCESS == PredicateOperator::do_predicate(filter_units_, tuple_, res));
+    if (RC::SUCCESS != (rc = PredicateOperator::do_predicate(filter_units_, tuple_, res))) {
+      LOG_ERROR("JoinOperater do predicate Failed. RC = %d : %s", rc, strrc(rc));
+      return rc;
+    }
     if (res) {
       filtered_rht_.emplace_back(i);
     }
   }
   rht_it_ = filtered_rht_.begin();
   LOG_INFO("Filter Right Table Success! There are %d rows in right table satisfy predicates.", filtered_rht_.size());
+  return rc;
 }
 
 RC JoinOperator::fetch_right_table()
@@ -91,7 +96,11 @@ RC JoinOperator::next()
 
   rc = left_->next();
   if (RC::SUCCESS == rc) {
-    filter_right_table();
+    rc = filter_right_table();
+    if (RC::SUCCESS != rc) {
+      LOG_ERROR("Filter Right Table Failed. RC = %d : %s", rc, strrc(rc));
+      return rc;
+    }
     return next();
   }
 
