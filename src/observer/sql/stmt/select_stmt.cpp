@@ -192,12 +192,6 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     }
   }
 
-  if (flag) {
-    std::cout << "HERE" << std::endl;
-    LOG_ERROR("HERE");
-    return RC::INTERNAL;
-  }
-
   LOG_INFO("got %d tables in from stmt and %d projects in query stmt", tables.size(), projects.size());
 
   Table *default_table = nullptr;
@@ -219,6 +213,12 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
       LOG_WARN("cannot construct filter stmt");
       return rc;
     }
+  }
+
+  if (flag) {
+    std::cout << "HERE" << std::endl;
+    LOG_ERROR("HERE");
+    return RC::INTERNAL;
   }
 
   OrderByStmt *orderby_stmt = nullptr;
