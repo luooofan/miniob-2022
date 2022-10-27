@@ -115,11 +115,6 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
     }
   }
 
-  if (flag) {
-    std::cout << "HERE" << std::endl;
-    LOG_ERROR("HERE");
-    return RC::INTERNAL;
-  }
   // collect query fields in `select` statement
   // TODO(wbj) check aggrfunc fields
   std::vector<Expression *> projects;
@@ -195,6 +190,12 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
       }
       projects.emplace_back(res_project);
     }
+  }
+
+  if (flag) {
+    std::cout << "HERE" << std::endl;
+    LOG_ERROR("HERE");
+    return RC::INTERNAL;
   }
 
   LOG_INFO("got %d tables in from stmt and %d projects in query stmt", tables.size(), projects.size());
