@@ -698,7 +698,7 @@ RC ExecuteStage::gen_physical_plan(
   // 5. process select clause
   ProjectOperator *project_oper = new ProjectOperator();
   project_oper->add_child(top_op);
-  top_op = project_oper;
+  // top_op = project_oper;
   auto &projects = select_stmt->projects();
   for (auto it = projects.begin(); it != projects.end(); it++) {
     project_oper->add_projection(*it, is_single_table);
@@ -942,9 +942,9 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();
-  Db *db = session->get_current_db();
+  // Db *db = session->get_current_db();
   Trx *trx = session->current_trx();
-  CLogManager *clog_manager = db->get_clog_manager();
+  // CLogManager *clog_manager = db->get_clog_manager();
 
   if (stmt == nullptr) {
     LOG_WARN("cannot find statement");

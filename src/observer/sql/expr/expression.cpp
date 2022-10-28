@@ -351,7 +351,15 @@ RC BinaryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) const
   TupleCell left_cell;
   TupleCell right_cell;
   RC rc = left_expr_->get_value(tuple, left_cell);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("BinaryExpression Get Left Value Failed. RC = %d:%s", rc, strrc(rc));
+    return rc;
+  }
   rc = right_expr_->get_value(tuple, right_cell);
+  if (RC::SUCCESS != rc) {
+    LOG_ERROR("BinaryExpression Get Right Value Failed. RC = %d:%s", rc, strrc(rc));
+    return rc;
+  }
   // calculate
   assert(left_cell.attr_type() != DATES && right_cell.attr_type() != DATES);
   assert(left_cell.attr_type() != CHARS && right_cell.attr_type() != CHARS);
@@ -595,10 +603,13 @@ RC BinaryExpression::create_expression(const Expr *expr, const std::unordered_ma
   Expression *right_expr;
   RC rc = Expression::create_expression(expr->bexp->left, table_map, tables, left_expr);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("BinaryExpression Create Left Expression Failed. RC = %d:%s", rc, strrc(rc));
     return rc;
   }
   rc = Expression::create_expression(expr->bexp->right, table_map, tables, right_expr);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("BinaryExpression Create Right Expression Failed. RC = %d:%s", rc, strrc(rc));
+    delete left_expr;
     return rc;
   }
   res_expr = new BinaryExpression(expr->bexp->op, left_expr, right_expr, with_brace, expr->bexp->minus);
@@ -618,6 +629,7 @@ RC AggrFuncExpression::create_expression(const Expr *expr, const std::unordered_
     Expression *tmp_value_exp = nullptr;
     RC rc = Expression::create_expression(expr->afexp->param, table_map, tables, tmp_value_exp);
     if (rc != RC::SUCCESS) {
+      LOG_ERROR("AggrFuncExpression Create Param Expression Failed. RC = %d:%s", rc, strrc(rc));
       return rc;
     }
     assert(ExprType::VALUE == tmp_value_exp->type());
@@ -630,6 +642,7 @@ RC AggrFuncExpression::create_expression(const Expr *expr, const std::unordered_
   Expression *param = nullptr;
   RC rc = Expression::create_expression(expr->afexp->param, table_map, tables, param);
   if (rc != RC::SUCCESS) {
+    LOG_ERROR("AggrFuncExpression Create Param Expression Failed. RC = %d:%s", rc, strrc(rc));
     return rc;
   }
   assert(nullptr != param && ExprType::FIELD == param->type());

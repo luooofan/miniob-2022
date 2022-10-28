@@ -840,6 +840,7 @@ RC Table::update_record(Trx *trx, const char *attr_name, Record *record, Value *
   int field_length = -1;
   int field_idx = -1;
   bool field_nullable = false;
+  AttrType field_type = UNDEFINED;
 
   int record_size = table_meta_.record_size();
   const int sys_field_num = table_meta_.sys_field_num();      // ignore __trx column
@@ -858,6 +859,7 @@ RC Table::update_record(Trx *trx, const char *attr_name, Record *record, Value *
     field_length = field_meta->len();
     field_idx = i + sys_field_num;
     field_nullable = field_meta->nullable();
+    field_type = field_meta->type();
     if (nullptr != find_index_by_field(field_name)) {
       is_index = true;
     }
@@ -871,7 +873,9 @@ RC Table::update_record(Trx *trx, const char *attr_name, Record *record, Value *
       LOG_WARN("duplicate value");
       return RC::RECORD_DUPLICATE_KEY;
     }
-  } else if (0 == memcmp(record->data() + field_offset, value->data, field_length)) {
+  } else if (CHARS != field_type && CHARS != value->type &&
+             0 == memcmp(record->data() + field_offset, value->data, field_length)) {
+    // TODO(wbj)
     LOG_WARN("duplicate value");
     return RC::RECORD_DUPLICATE_KEY;
   }

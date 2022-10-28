@@ -117,6 +117,9 @@ RC PredicateOperator::do_predicate(const FilterUnit *filter_unit, Tuple &tuple, 
     sub_query_expr->open_sub_query();
     // TODO compound with parent tuple
     RC tmp_rc = sub_query_expr->get_value(tuple, right_cell);
+    if (RC::SUCCESS != tmp_rc && RC::RECORD_EOF != tmp_rc) {
+      return tmp_rc;
+    }
     sub_query_expr->close_sub_query();
     res = CompOp::EXISTS_OP == comp ? (RC::SUCCESS == tmp_rc) : (RC::RECORD_EOF == tmp_rc);
     return RC::SUCCESS;
@@ -124,22 +127,28 @@ RC PredicateOperator::do_predicate(const FilterUnit *filter_unit, Tuple &tuple, 
 
   // 1. for [not] in
   if (CompOp::IN_OP == comp || CompOp::NOT_IN == comp) {
-    left_expr->get_value(tuple, left_cell);
+    rc = left_expr->get_value(tuple, left_cell);
+    if (RC::SUCCESS != rc) {
+      return rc;
+    }
     if (left_cell.is_null()) {
       res = false;  // null don't in/not in any list
       return RC::SUCCESS;
     }
     std::vector<TupleCell> right_cells;
     right_cells.emplace_back(TupleCell());
-    RC rc = RC::SUCCESS;
+    RC tmp_rc = RC::SUCCESS;
     if (ExprType::SUBQUERYTYPE == right_expr->type()) {
       auto sub_query_expr = (const SubQueryExpression *)right_expr;
       sub_query_expr->open_sub_query();
-      while (RC::SUCCESS == (rc = sub_query_expr->get_value(tuple, right_cells.back()))) {
+      while (RC::SUCCESS == (tmp_rc = sub_query_expr->get_value(tuple, right_cells.back()))) {
         right_cells.emplace_back(TupleCell());
       }
       sub_query_expr->close_sub_query();
-      assert(RC::RECORD_EOF == rc);
+      if (RC::RECORD_EOF != tmp_rc) {
+        LOG_ERROR("[NOT] IN Get SubQuery Value Failed. RC = %d:%s", tmp_rc, strrc(tmp_rc));
+        return tmp_rc;
+      }
       right_cells.pop_back();  // pop null cell for record_eof
     } else {
       assert(ExprType::SUBLISTTYPE == right_expr->type());
@@ -232,12 +241,9 @@ RC PredicateOperator::do_predicate(const FilterUnit *filter_unit, Tuple &tuple, 
     return RC::SUCCESS;
   }
 
-  AttrType left_type = left_cell.attr_type();
-  AttrType right_type = right_cell.attr_type();
-
   // 2. for like. only occur in chars type. no need to concern typecast
   if (LIKE_OP == comp || NOT_LIKE_OP == comp) {
-    assert(CHARS == left_type && CHARS == right_type);
+    assert(CHARS == left_cell.attr_type() && CHARS == right_cell.attr_type());
     std::string raw_reg((const char *)right_cell.data());
     replace_all(raw_reg, "_", "[^']");
     replace_all(raw_reg, "%", "[^']*");
