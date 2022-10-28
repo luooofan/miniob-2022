@@ -875,6 +875,19 @@ RC Table::rollback_update(Trx *trx, Record &new_record, char *old_record_data)
   return rc;
 }
 
+RC Table::recover_update_record(Record *record)
+{
+  RC rc = RC::SUCCESS;
+
+  rc = record_handler_->recover_update_record(record->data(), table_meta_.record_size(), &record->rid());
+  if (rc != RC::SUCCESS) {
+    LOG_ERROR("Update record failed. table name=%s, rc=%d:%s", table_meta_.name(), rc, strrc(rc));
+    return rc;
+  }
+
+  return rc;
+}
+
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
     const Condition conditions[], int *updated_count)
 {
@@ -955,32 +968,6 @@ RC Table::update_record(
     new_records_data.emplace_back(new_data);
     itor->set_data(new_data);
   }
-  // for (size_t i = 0; i < records.size(); i++) {
-  //   char *old_data = records[i].data();
-  //   char *new_data = new char[record_size];
-  //   memcpy(new_data, old_data, record_size);
-
-  //   for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
-  //     rc = change_record_value(new_data, field_idx[c_idx], *values[c_idx]);
-  //     if (RC::SUCCESS != rc) {
-  //       LOG_ERROR("Change Record Value Failed. RC = %d", rc);
-  //       // free memory before return
-  //       for (size_t j = 0; j < new_records_data.size(); j++) {
-  //         delete[] new_records_data[j];
-  //       }
-  //       return rc;
-  //     }
-  //   }
-  //   if (0 == memcmp(old_data, new_data, record_size)) {
-  //     LOG_WARN("duplicate value");
-  //     // free memory before return
-  //     delete[] new_data;
-  //     continue;
-  //   }
-  //   old_records_data.emplace_back(old_data);
-  //   new_records_data.emplace_back(new_data);
-  //   records[i].set_data(new_data);
-  // }
 
   // update records
   for (size_t i = 0; i < records.size(); i++) {
@@ -1098,12 +1085,27 @@ RC Table::update_record(
     }
   }
 
-  // make trx record
   if (trx != nullptr) {
+    // make trx record
     for (size_t i = 0; i < records.size(); i++) {
       trx->update_record(this, &records[i]);
     }
-    // TO DO CLOG
+
+    // DO CLOG
+    for (size_t i = 0; i < records.size(); i++) {
+      CLogRecord *clog_record = nullptr;
+      rc = clog_manager_->clog_gen_record(
+          CLogType::REDO_UPDATE, trx->get_current_id(), clog_record, name(), table_meta_.record_size(), &records[i]);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("Failed to create a clog record. rc=%d:%s", rc, strrc(rc));
+        return rc;
+      }
+      rc = clog_manager_->clog_append_record(clog_record);
+      if (rc != RC::SUCCESS) {
+        LOG_ERROR("Failed to append clog record. rc=%d:%s", rc, strrc(rc));
+        return rc;
+      }
+    }
   }
 
   return rc;

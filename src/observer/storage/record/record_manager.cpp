@@ -244,6 +244,26 @@ RC RecordPageHandler::update_record(const Record *rec)
   }
 }
 
+RC RecordPageHandler::recover_update_record(const char *data, RID *rid)
+{
+  if (page_header_->record_num == page_header_->record_capacity) {
+    LOG_WARN("Page is full, page_num %d:%d.", frame_->page_num());
+    return RC::RECORD_NOMEM;
+  }
+  if (rid->slot_num >= page_header_->record_capacity) {
+    LOG_WARN("slot_num illegal, slot_num(%d) > record_capacity(%d).", rid->slot_num, page_header_->record_capacity);
+    return RC::RECORD_NOMEM;
+  }
+
+  // 恢复数据
+  char *record_data = get_record_data(rid->slot_num);
+  memcpy(record_data, data, page_header_->record_real_size);
+
+  frame_->mark_dirty();
+
+  return RC::SUCCESS;
+}
+
 RC RecordPageHandler::delete_record(const RID *rid)
 {
   if (rid->slot_num >= page_header_->record_capacity) {
@@ -425,6 +445,20 @@ RC RecordFileHandler::update_record(const Record *rec)
   }
 
   return page_handler.update_record(rec);
+}
+
+RC RecordFileHandler::recover_update_record(const char *data, int record_size, RID *rid)
+{
+  RC ret = RC::SUCCESS;
+  RecordPageHandler record_page_handler;
+
+  ret = record_page_handler.recover_init(*disk_buffer_pool_, rid->page_num);
+  if (ret != RC::SUCCESS) {
+    LOG_WARN("failed to init record page handler. page num=%d, rc=%d:%s", rid->page_num, ret, strrc(ret));
+    return ret;
+  }
+
+  return record_page_handler.recover_update_record(data, rid);
 }
 
 RC RecordFileHandler::delete_record(const RID *rid)

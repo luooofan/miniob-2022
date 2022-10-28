@@ -72,6 +72,8 @@ public:
     return insert_record(trx, 1, value_num, values_);
   }
   RC insert_record(Trx *trx, int row_num, int value_num, std::vector<const Value *> &values);
+
+  RC recover_update_record(Record *record);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
   RC update_record(Trx *trx, std::vector<const char *> &attr_names, std::vector<Record> &records,

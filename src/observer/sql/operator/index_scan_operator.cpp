@@ -82,12 +82,7 @@ RC IndexScanOperator::open()
       index_->create_scanner(left, left_len, left_inclusive_, right, right_len, right_inclusive_);
   delete[] left_with_bitmap;
   delete[] right_with_bitmap;
-  // IndexScanner *index_scanner = index_->create_scanner(left_cell_.data(),
-  //     left_cell_.length(),
-  //     left_inclusive_,
-  //     right_cell_.data(),
-  //     right_cell_.length(),
-  //     right_inclusive_);
+
   if (nullptr == index_scanner) {
     LOG_WARN("failed to create index scanner");
     return RC::INTERNAL;
