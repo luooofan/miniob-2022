@@ -20,7 +20,7 @@ See the Mulan PSL v2 for more details. */
 #include "util/typecast.h"
 
 InsertStmt::InsertStmt(Table *table, std::vector<const Value *> rows, int row_amount, int value_amount)
-    : table_(table), rows_(rows), row_amount_(row_amount), value_amount_(value_amount)
+    : table_(table), row_amount_(row_amount), value_amount_(value_amount), rows_(rows)
 {}
 
 RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
@@ -68,6 +68,7 @@ RC InsertStmt::create(Db *db, const Inserts &inserts, Stmt *&stmt)
               value_type);
           return RC::SCHEMA_FIELD_TYPE_MISMATCH;
         }
+        rows.push_back(value);
         continue;
       }
       // check typecast

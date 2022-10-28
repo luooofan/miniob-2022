@@ -262,7 +262,6 @@ RC Table::commit_insert(Trx *trx, const RID &rid)
 
 RC Table::rollback_insert(Trx *trx, const RID &rid)
 {
-
   Record record;
   RC rc = record_handler_->get_record(&rid, &record);
   if (rc != RC::SUCCESS) {
@@ -412,9 +411,15 @@ RC Table::recover_insert_record(Record *record)
 RC Table::insert_record(Trx *trx, int row_num, int value_num, std::vector<const Value *> &values)
 {
   RC rc = RC::SUCCESS;
-  if (row_num <= 0 || value_num <= 0 || nullptr == &values) {
-    LOG_ERROR("Invalid argument. table name: %s, value num=%d, values=%p", name(), value_num, values);
+  if (row_num <= 0 || value_num <= 0) {
+    LOG_ERROR("Invalid argument. table name: %s, value num=%d", name(), value_num);
     return RC::INVALID_ARGUMENT;
+  }
+  for (size_t i = 0; i < values.size(); i++) {
+    if (nullptr == values[i]) {
+      LOG_ERROR("Invalid argument. values=%p", values[i]);
+      return RC::INVALID_ARGUMENT;
+    }
   }
 
   std::vector<Record> records;
@@ -748,13 +753,16 @@ RC Table::create_index(Trx *trx, bool unique, const char *index_name, int attr_n
   }
 
   IndexMeta new_index_meta;
-  RC rc = new_index_meta.init(index_name, field_names);
+  RC rc = new_index_meta.init(index_name, unique, field_names);
   if (rc != RC::SUCCESS) {
     LOG_INFO("Failed to init IndexMeta in table:%s, index_name:%s, field_name:%s", name(), index_name, attribute_name);
     return rc;
   }
 
+  std::vector<int> field_idx;  //  每一列在bitmap中的位置
   std::vector<FieldMeta> field_metas;
+  // index的第0个field是标记NULL的bitmap
+  field_metas.push_back(*table_meta_.null_bitmap_field());
   for (int i = 0; i < attr_num; i++) {
     const FieldMeta *field_meta = table_meta_.field(attribute_name[i].name);
     if (!field_meta) {
@@ -828,117 +836,276 @@ RC Table::create_index(Trx *trx, bool unique, const char *index_name, int attr_n
   return rc;
 }
 
+// rollback one update operation
+RC Table::rollback_update(Trx *trx, Record &new_record, char *old_record_data)
+{
+  RC rc = RC::SUCCESS;
+  // delete new index
+  rc = delete_entry_of_indexes(new_record.data(), new_record.rid(), false);
+  if (RC::SUCCESS != rc) {
+    LOG_WARN("failed to delete index of new record (rid:%d,%d). rc=%d:%s",
+        new_record.rid().page_num,
+        new_record.rid().slot_num,
+        rc,
+        strrc(rc));
+    return rc;
+  }
+
+  // rollback record data
+  new_record.set_data(old_record_data);
+  rc = record_handler_->update_record(&new_record);
+  if (RC::SUCCESS != rc) {
+    LOG_WARN("failed to rollback record data (rid:%d,%d). rc=%d:%s",
+        new_record.rid().page_num,
+        new_record.rid().slot_num,
+        rc,
+        strrc(rc));
+    return rc;
+  }
+
+  // insert old index
+  rc = insert_entry_of_indexes(old_record_data, new_record.rid());
+  if (RC::SUCCESS != rc) {
+    LOG_WARN("failed to insert index for old record (rid:%d,%d). rc=%d:%s",
+        new_record.rid().page_num,
+        new_record.rid().slot_num,
+        rc,
+        strrc(rc));
+  }
+  return rc;
+}
+
 RC Table::update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
     const Condition conditions[], int *updated_count)
 {
   return RC::GENERIC_ERROR;
 }
 
-RC Table::update_record(Trx *trx, const char *attr_name, Record *record, const Value *value)
+RC Table::update_record(
+    Trx *trx, std::vector<const char *> &attr_names, std::vector<Record> &records, std::vector<const Value *> &values)
 {
   RC rc = RC::SUCCESS;
-  if (trx != nullptr) {
-    trx->init_trx_info(this, *record);
-  }
 
-  bool is_index = false;
-  int field_offset = -1;
-  int field_length = -1;
-  int field_idx = -1;
-  bool field_nullable = false;
-  AttrType field_type = UNDEFINED;
+  std::vector<int> field_idx;
+  std::vector<int> field_offset;
+  std::vector<int> field_length;
+  std::vector<bool> field_nullable;
 
   int record_size = table_meta_.record_size();
-  const int sys_field_num = table_meta_.sys_field_num();      // ignore __trx column
-  const int extra_filed_num = table_meta_.extra_filed_num();  // ignore __null column
-  const int user_field_num = table_meta_.field_num() - sys_field_num - extra_filed_num;
+  int sys_field_num = table_meta_.sys_field_num();      // ignore __trx column
+  int extra_filed_num = table_meta_.extra_filed_num();  // ignore __null column
+  int user_field_num = table_meta_.field_num() - sys_field_num - extra_filed_num;
 
   // find field info according to field_name. must find.
-  for (int i = 0; i < user_field_num; i++) {
-    const FieldMeta *field_meta = table_meta_.field(i + sys_field_num);
-    const char *field_name = field_meta->name();
-    if (0 != strcmp(field_name, attr_name)) {
+  for (size_t i = 0; i < attr_names.size(); i++) {
+    for (int j = 0; j < user_field_num; j++) {
+      const FieldMeta *field_meta = table_meta_.field(j + sys_field_num);
+      const char *field_name = field_meta->name();
+      if (0 != strcmp(field_name, attr_names[i])) {
+        continue;
+      }
+
+      field_idx.emplace_back(j + sys_field_num);
+      field_offset.emplace_back(field_meta->offset());
+      field_length.emplace_back(field_meta->len());
+      field_nullable.emplace_back(field_meta->nullable());
+      break;
+    }
+  }
+
+  // check null
+  for (size_t i = 0; i < records.size(); i++) {
+    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+      if (field_nullable[c_idx]) {
+        if (record_field_is_null(records[i].data(), field_idx[c_idx]) && AttrType::NULLS == values[c_idx]->type) {
+          LOG_WARN("duplicate value");
+          return RC::RECORD_NOT_ALLOW_NULL;
+        }
+      }
+    }
+  }
+
+  // make new record
+  std::vector<char *> old_records_data;
+  std::vector<char *> new_records_data;
+  for (auto itor = records.begin(); itor != records.end(); itor++) {
+    char *old_data = itor->data();
+    char *new_data = new char[record_size];
+    memcpy(new_data, old_data, record_size);
+
+    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+      rc = change_record_value(new_data, field_idx[c_idx], *values[c_idx]);
+      if (RC::SUCCESS != rc) {
+        LOG_ERROR("Change Record Value Failed. RC = %d", rc);
+        // free memory before return
+        for (size_t j = 0; j < new_records_data.size(); j++) {
+          delete[] new_records_data[j];
+        }
+        return rc;
+      }
+    }
+    if (0 == memcmp(old_data, new_data, record_size)) {
+      LOG_WARN("duplicate value");
+      // ignore record when new_data is duplicate with old
+      delete[] new_data;
+      itor = --records.erase(itor);
       continue;
     }
+    old_records_data.emplace_back(old_data);
+    new_records_data.emplace_back(new_data);
+    itor->set_data(new_data);
+  }
+  // for (size_t i = 0; i < records.size(); i++) {
+  //   char *old_data = records[i].data();
+  //   char *new_data = new char[record_size];
+  //   memcpy(new_data, old_data, record_size);
 
-    field_offset = field_meta->offset();
-    field_length = field_meta->len();
-    field_idx = i + sys_field_num;
-    field_nullable = field_meta->nullable();
-    field_type = field_meta->type();
-    if (nullptr != find_index_by_field(field_name)) {
-      is_index = true;
+  //   for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+  //     rc = change_record_value(new_data, field_idx[c_idx], *values[c_idx]);
+  //     if (RC::SUCCESS != rc) {
+  //       LOG_ERROR("Change Record Value Failed. RC = %d", rc);
+  //       // free memory before return
+  //       for (size_t j = 0; j < new_records_data.size(); j++) {
+  //         delete[] new_records_data[j];
+  //       }
+  //       return rc;
+  //     }
+  //   }
+  //   if (0 == memcmp(old_data, new_data, record_size)) {
+  //     LOG_WARN("duplicate value");
+  //     // free memory before return
+  //     delete[] new_data;
+  //     continue;
+  //   }
+  //   old_records_data.emplace_back(old_data);
+  //   new_records_data.emplace_back(new_data);
+  //   records[i].set_data(new_data);
+  // }
+
+  // update records
+  for (size_t i = 0; i < records.size(); i++) {
+    if (trx != nullptr) {
+      trx->init_trx_info(this, records[i]);
     }
-    break;
-  }
-  assert(-1 != field_idx);
 
-  // check duplicate
-  if (field_nullable) {
-    if (record_field_is_null(record->data(), field_idx) && AttrType::NULLS == value->type) {
-      LOG_WARN("duplicate value");
-      return RC::RECORD_DUPLICATE_KEY;
-    }
-  } else if (CHARS != field_type && CHARS != value->type &&
-             0 == memcmp(record->data() + field_offset, value->data, field_length)) {
-    // TODO(wbj)
-    LOG_WARN("duplicate value");
-    return RC::RECORD_DUPLICATE_KEY;
-  }
-
-  char *old_data = record->data();
-  char *data = new char[record_size];  // new_record->data
-  memcpy(data, old_data, record_size);
-  rc = change_record_value(data, field_idx, *value);
-  assert(RC::SUCCESS == rc);  // do check in resolve stage. so assert success
-  if (RC::SUCCESS != rc) {
-    LOG_ERROR("Change Record Value Failed. RC = %d", rc);
-    return rc;
-  }
-  record->set_data(data);
-
-  // add index for new_record first
-  if (is_index) {
-    rc = insert_entry_of_indexes(record->data(), record->rid());
+    // delete index of old_record
+    rc = delete_entry_of_indexes(old_records_data[i], records[i].rid(), false);
     if (rc != RC::SUCCESS) {
-      RC rc2 = delete_entry_of_indexes(record->data(), record->rid(), true);
+      LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
+          records[i].rid().page_num,
+          records[i].rid().slot_num,
+          rc,
+          strrc(rc));
+      // rollback when update failed
+      RC rc2 = RC::SUCCESS;
+      for (int j = i - 1; j >= 0; j--) {
+        rc2 = rollback_update(trx, records[j], old_records_data[j]);
+        if (rc2 != RC::SUCCESS) {
+          LOG_ERROR("Failed to rollback update (rid=%d.%d). rc=%d:%s",
+              records[j].rid().page_num,
+              records[j].rid().slot_num,
+              rc2,
+              strrc(rc2));
+          break;
+        }
+      }
+      // free memory before return
+      for (size_t j = 0; j < new_records_data.size(); j++) {
+        delete[] new_records_data[j];
+      }
+      return rc;
+    }
+
+    //  update record data
+    rc = record_handler_->update_record(&records[i]);
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to update record (rid=%d.%d). rc=%d:%s",
+          records[i].rid().page_num,
+          records[i].rid().slot_num,
+          rc,
+          strrc(rc));
+      // rollback when update failed
+      RC rc2 = RC::SUCCESS;
+      rc2 = insert_entry_of_indexes(old_records_data[i], records[i].rid());
       if (rc2 != RC::SUCCESS) {
-        LOG_ERROR("Failed to rollback index data when insert index entries failed. table name=%s, rc=%d:%s",
-            name(),
+        LOG_ERROR("Failed to rollback index (rid:%d,%d) rc=%d:%s",
+            records[i].rid().page_num,
+            records[i].rid().slot_num,
             rc2,
             strrc(rc2));
+      } else {
+        for (int j = i - 1; j >= 0; j--) {
+          rc2 = rollback_update(trx, records[j], old_records_data[j]);
+          if (rc2 != RC::SUCCESS) {
+            LOG_ERROR("Failed to rollback update (rid=%d.%d). rc=%d:%s",
+                records[j].rid().page_num,
+                records[j].rid().slot_num,
+                rc2,
+                strrc(rc2));
+            break;
+          }
+        }
+      }
+      // free memory before return
+      for (size_t j = 0; j < new_records_data.size(); j++) {
+        delete[] new_records_data[j];
+      }
+      return rc;
+    }
+
+    // add index for new_record
+    rc = insert_entry_of_indexes(records[i].data(), records[i].rid());
+    if (rc != RC::SUCCESS) {
+      LOG_ERROR("Failed to insert index for new record (rid=%d.%d), rc=%d:%s",
+          records[i].rid().page_num,
+          records[i].rid().slot_num,
+          rc,
+          strrc(rc));
+      // rollback when update failed
+      RC rc2 = RC::SUCCESS;
+      records[i].set_data(old_records_data[i]);
+      rc2 = record_handler_->update_record(&records[i]);
+      if (rc2 != RC::SUCCESS) {
+        LOG_ERROR("Failed to rollback record (rid:%d,%d). rc=%d:%s",
+            records[i].rid().page_num,
+            records[i].rid().slot_num,
+            rc2,
+            strrc(rc2));
+      } else if (RC::SUCCESS != (rc2 = insert_entry_of_indexes(old_records_data[i], records[i].rid()))) {
+        LOG_ERROR("Failed to rollback index (rid:%d,%d). rc=%d:%s",
+            records[i].rid().page_num,
+            records[i].rid().slot_num,
+            rc2,
+            strrc(rc2));
+      } else {
+        for (int j = i - 1; j >= 0; j--) {
+          rc2 = rollback_update(trx, records[j], old_records_data[j]);
+          if (rc2 != RC::SUCCESS) {
+            LOG_ERROR("Failed to rollback update (rid=%d.%d). rc=%d:%s",
+                records[j].rid().page_num,
+                records[j].rid().slot_num,
+                rc2,
+                strrc(rc2));
+            break;
+          }
+        }
+      }
+      // free memory before return
+      for (size_t j = 0; j < new_records_data.size(); j++) {
+        delete[] new_records_data[j];
       }
       return rc;
     }
   }
 
-  //  update record data
-  rc = record_handler_->update_record(record);
-  if (rc != RC::SUCCESS) {
-    LOG_ERROR(
-        "Failed to update record (rid=%d.%d). rc=%d:%s", record->rid().page_num, record->rid().slot_num, rc, strrc(rc));
-    return rc;
-  }
-
-  // delete index for old_record
-  if (is_index) {
-    rc = delete_entry_of_indexes(old_data, record->rid(), false);
-    if (rc != RC::SUCCESS) {
-      LOG_ERROR("Failed to delete indexes of record (rid=%d.%d). rc=%d:%s",
-          record->rid().page_num,
-          record->rid().slot_num,
-          rc,
-          strrc(rc));
-    }
-    return rc;
-  }
-
   // make trx record
   if (trx != nullptr) {
-    trx->update_record(this, record);
-
+    for (size_t i = 0; i < records.size(); i++) {
+      trx->update_record(this, &records[i]);
+    }
     // TO DO CLOG
   }
+
   return rc;
 }
 

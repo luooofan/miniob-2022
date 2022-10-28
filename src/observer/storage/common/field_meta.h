@@ -30,9 +30,10 @@ public:
   FieldMeta();
   ~FieldMeta() = default;
 
-  RC init(const char *name, AttrType attr_type, int attr_offset, int attr_len, bool nullable, bool visible);
+  RC init(int id, const char *name, AttrType attr_type, int attr_offset, int attr_len, bool nullable, bool visible);
 
 public:
+  int id() const;
   const char *name() const;
   AttrType type() const;
   int offset() const;
@@ -54,6 +55,7 @@ public:
   static RC from_json(const Json::Value &json_value, FieldMeta &field);
 
 protected:
+  int id_;
   std::string name_;
   AttrType attr_type_;
   int attr_offset_;

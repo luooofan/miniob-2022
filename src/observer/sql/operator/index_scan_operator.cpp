@@ -33,12 +33,61 @@ RC IndexScanOperator::open()
     return RC::INTERNAL;
   }
 
-  IndexScanner *index_scanner = index_->create_scanner(left_cell_.data(),
-      left_cell_.length(),
-      left_inclusive_,
-      right_cell_.data(),
-      right_cell_.length(),
-      right_inclusive_);
+  const char *left;
+  const char *right;
+  int left_len = 0;
+  int right_len = 0;
+  int value_len = 0;
+  int map_len = table_->table_meta().null_bitmap_field()->len();
+  for (int i = 0; i < index_->index_meta().field_count(); i++) {
+    const char *field_name = index_->index_meta().field()->at(i).c_str();
+    value_len += table_->table_meta().field(field_name)->len();
+  }
+
+  char *left_with_bitmap = new char[map_len + value_len];
+  char *right_with_bitmap = new char[map_len + value_len];
+  if (nullptr != left_cell_.data()) {
+    memset(left_with_bitmap, 0, map_len + value_len);
+    common::Bitmap left_map(left_with_bitmap, map_len);
+    if (left_cell_.attr_type() == AttrType::NULLS) {
+      const char *field_name = index_->index_meta().field()->at(0).c_str();
+      int field_id = table_->table_meta().field(field_name)->id();
+      left_map.set_bit(field_id);
+    }
+    memcpy(left_with_bitmap + map_len, left_cell_.data(), value_len);
+    left = left_with_bitmap;
+    left_len = map_len + value_len;
+  } else {
+    left = nullptr;
+    left_len = left_cell_.length();
+  }
+
+  if (nullptr != right_cell_.data()) {
+    memset(left_with_bitmap, 0, map_len + value_len);
+    common::Bitmap right_map(right_with_bitmap, map_len);
+    if (right_cell_.attr_type() == AttrType::NULLS) {
+      const char *field_name = index_->index_meta().field()->at(0).c_str();
+      int field_id = table_->table_meta().field(field_name)->id();
+      right_map.set_bit(field_id);
+    }
+    memcpy(right_with_bitmap + map_len, right_cell_.data(), value_len);
+    right = right_with_bitmap;
+    right_len = map_len + value_len;
+  } else {
+    right = nullptr;
+    right_len = right_cell_.length();
+  }
+
+  IndexScanner *index_scanner =
+      index_->create_scanner(left, left_len, left_inclusive_, right, right_len, right_inclusive_);
+  delete[] left_with_bitmap;
+  delete[] right_with_bitmap;
+  // IndexScanner *index_scanner = index_->create_scanner(left_cell_.data(),
+  //     left_cell_.length(),
+  //     left_inclusive_,
+  //     right_cell_.data(),
+  //     right_cell_.length(),
+  //     right_inclusive_);
   if (nullptr == index_scanner) {
     LOG_WARN("failed to create index scanner");
     return RC::INTERNAL;

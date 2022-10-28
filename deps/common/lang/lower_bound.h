@@ -29,8 +29,8 @@ namespace common {
  * @return ForwardIterator 指向lower bound结果的iterator。如果大于最大的值，那么会指向last
  */
 template <typename ForwardIterator, typename T, typename Compare>
-ForwardIterator lower_bound(ForwardIterator first, ForwardIterator last,
-			    const T &val, Compare comp, bool *_found = nullptr)
+ForwardIterator lower_bound(ForwardIterator first, ForwardIterator last, const T &val, Compare comp,
+    bool *_found = nullptr, bool null_as_differrnt = false)  // for null type
 {
   bool found = false;
   ForwardIterator iter;
@@ -40,7 +40,7 @@ ForwardIterator lower_bound(ForwardIterator first, ForwardIterator last,
     iter = first;
     auto step = last_count / 2;
     std::advance(iter, step);
-    int result = comp(*iter, val);
+    int result = comp(*iter, val, null_as_differrnt);  // for null type
     if (0 == result) {
       first = iter;
       found = true;
@@ -61,10 +61,9 @@ ForwardIterator lower_bound(ForwardIterator first, ForwardIterator last,
 }
 
 template <typename T>
-class Comparator
-{
+class Comparator {
 public:
-  int operator() (const T &v1, const T &v2) const
+  int operator()(const T &v1, const T &v2) const
   {
     if (v1 < v2) {
       return -1;
@@ -83,33 +82,67 @@ ForwardIterator lower_bound(ForwardIterator first, ForwardIterator last, const T
 }
 
 template <typename T, typename Distance = ptrdiff_t>
-class BinaryIterator : public std::iterator<std::random_access_iterator_tag, T *, Distance>
-{
-public: 
+class BinaryIterator : public std::iterator<std::random_access_iterator_tag, T *, Distance> {
+public:
   BinaryIterator() = default;
   BinaryIterator(size_t item_num, T *data) : item_num_(item_num), data_(data)
   {}
 
-  BinaryIterator &operator+= (int n) { data_ += (item_num_ * n); return *this; }
-  BinaryIterator &operator-= (int n) { return this->operator+ (-n); }
-  BinaryIterator &operator++() { return this->operator +=(1); }
-  BinaryIterator operator++(int) { BinaryIterator tmp(*this); this->operator++(); return tmp; }
-  BinaryIterator &operator--() { return this->operator += (-1); }
-  BinaryIterator operator--(int) { BinaryIterator tmp(*this); this->operator += (-1); return tmp; }
+  BinaryIterator &operator+=(int n)
+  {
+    data_ += (item_num_ * n);
+    return *this;
+  }
+  BinaryIterator &operator-=(int n)
+  {
+    return this->operator+(-n);
+  }
+  BinaryIterator &operator++()
+  {
+    return this->operator+=(1);
+  }
+  BinaryIterator operator++(int)
+  {
+    BinaryIterator tmp(*this);
+    this->operator++();
+    return tmp;
+  }
+  BinaryIterator &operator--()
+  {
+    return this->operator+=(-1);
+  }
+  BinaryIterator operator--(int)
+  {
+    BinaryIterator tmp(*this);
+    this->operator+=(-1);
+    return tmp;
+  }
 
-  bool operator == (const BinaryIterator &other) const { return data_ == other.data_; }
-  bool operator != (const BinaryIterator &other) const { return ! (this->operator ==(other)); }
+  bool operator==(const BinaryIterator &other) const
+  {
+    return data_ == other.data_;
+  }
+  bool operator!=(const BinaryIterator &other) const
+  {
+    return !(this->operator==(other));
+  }
 
-  T * operator *() { return data_; }
-  T * operator ->() { return data_; }
+  T *operator*()
+  {
+    return data_;
+  }
+  T *operator->()
+  {
+    return data_;
+  }
 
-  friend Distance operator - (const BinaryIterator &left, const BinaryIterator &right)
+  friend Distance operator-(const BinaryIterator &left, const BinaryIterator &right)
   {
     return (left.data_ - right.data_) / left.item_num_;
   }
 
 private:
   size_t item_num_ = 0;
-  T * data_ = nullptr;
+  T *data_ = nullptr;
 };
-} // namespace common
+}  // namespace common

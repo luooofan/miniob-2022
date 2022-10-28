@@ -74,7 +74,8 @@ public:
   RC insert_record(Trx *trx, int row_num, int value_num, std::vector<const Value *> &values);
   RC update_record(Trx *trx, const char *attribute_name, const Value *value, int condition_num,
       const Condition conditions[], int *updated_count);
-  RC update_record(Trx *trx, const char *attr_name, Record *record, const Value *value);
+  RC update_record(Trx *trx, std::vector<const char *> &attr_names, std::vector<Record> &records,
+      std::vector<const Value *> &values);
   RC delete_record(Trx *trx, ConditionFilter *filter, int *deleted_count);
   RC delete_record(Trx *trx, Record *record);
   RC recover_delete_record(Record *record);
@@ -102,6 +103,7 @@ public:
   RC commit_insert(Trx *trx, const RID &rid);
   RC commit_delete(Trx *trx, const RID &rid);
   RC rollback_insert(Trx *trx, const RID &rid);
+  RC rollback_update(Trx *trx, Record &new_record, char *old_record_data);
   RC rollback_delete(Trx *trx, const RID &rid);
 
 private:

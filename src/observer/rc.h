@@ -48,6 +48,7 @@ enum RCRecord {
   RD_SCANOPENNED,
   RD_EOF,
   RD_NOT_EXIST,
+  RD_NOT_ALLOW_NULL,
 };
 
 enum RCSchema {
@@ -255,6 +256,7 @@ enum RC {
   RECORD_SCANOPENNED = (RECORD | (RCRecord::RD_SCANOPENNED << 8)),
   RECORD_EOF = (RECORD | (RCRecord::RD_EOF << 8)),
   RECORD_RECORD_NOT_EXIST = (RECORD | (RCRecord::RD_NOT_EXIST << 8)),
+  RECORD_NOT_ALLOW_NULL = (RECORD | (RCRecord::RD_NOT_ALLOW_NULL << 8)),
 
   /* schema part */
   SCHEMA_DB_EXIST = (SCHEMA | (RCSchema::DB_EXIST << 8)),

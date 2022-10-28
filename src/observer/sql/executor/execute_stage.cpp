@@ -374,6 +374,7 @@ IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_u
   TupleCell value;
   right_value_expr.get_tuple_cell(value);
 
+  // left是field, right是value
   const TupleCell *left_cell = nullptr;
   const TupleCell *right_cell = nullptr;
   bool left_inclusive = false;
@@ -965,8 +966,6 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
     session_event->set_response("SUCCESS\n");
 
     // TODO trx_multi_operation_mode
-
-    LOG_INFO("Successfully update %d rows", update_oper.row_num());
   }
 
   return rc;

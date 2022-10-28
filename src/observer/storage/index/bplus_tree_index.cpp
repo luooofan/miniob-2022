@@ -33,16 +33,20 @@ RC BplusTreeIndex::create(const char *file_name, const IndexMeta &index_meta, st
 
   Index::init(index_meta, field_meta);
 
+  std::vector<int> field_id;
   std::vector<int> field_length;
   std::vector<int> field_offset;
   std::vector<AttrType> field_type;
+
+  // 第0个字段为record中NULL的Bitmap
   for (size_t i = 0; i < field_meta.size(); i++) {
+    field_id.push_back(field_meta[i].id());
     field_length.push_back(field_meta[i].len());
     field_offset.push_back(field_meta[i].offset());
     field_type.push_back(field_meta[i].type());
   }
 
-  RC rc = index_handler_.create(file_name, field_type, field_length, field_offset);
+  RC rc = index_handler_.create(file_name, index_meta.is_unique(), field_id, field_type, field_length, field_offset);
   if (RC::SUCCESS != rc) {
     LOG_WARN("Failed to create index_handler, file_name:%s, index:%s, field:%s, rc:%s",
         file_name,
@@ -99,19 +103,7 @@ RC BplusTreeIndex::close()
 
 RC BplusTreeIndex::insert_entry(const char *record, const RID *rid)
 {
-  int len_sum = 0;
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    len_sum += field_meta_[i].len();
-  }
-
-  int pos = 0;
-  char user_key[len_sum];
-  for (size_t i = 0; i < field_meta_.size(); i++) {
-    memcpy(user_key + pos, record + field_meta_[i].offset(), field_meta_[i].len());
-    pos += field_meta_[i].len();
-  }
-
-  return index_handler_.insert_entry(user_key, rid);
+  return index_handler_.insert_entry(record, rid);
 }
 
 RC BplusTreeIndex::delete_entry(const char *record, const RID *rid)

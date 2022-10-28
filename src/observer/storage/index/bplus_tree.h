@@ -31,8 +31,9 @@ See the Mulan PSL v2 for more details. */
 
 class AttrComparator {
 public:
-  void init(std::vector<AttrType> type, std::vector<int> length)
+  void init(std::vector<int> id, std::vector<AttrType> type, std::vector<int> length)
   {
+    attr_id_ = id;
     attr_type_ = type;
     attr_length_ = length;
   }
@@ -46,11 +47,22 @@ public:
     return sum_len;  // TO DO MULTI INDEX
   }
 
-  int operator()(const char *v1, const char *v2) const
+  int operator()(const char *v1, const char *v2, bool null_as_differnet = false) const  // for null type
   {
     int rc = 0;
-    int pos = 0;
-    for (size_t i = 0; i < attr_length_.size(); i++) {
+    int pos = attr_length_[0];
+    common::Bitmap old_null_bitmap(const_cast<char *>(v1), attr_length_[0]);
+    common::Bitmap new_null_bitmap(const_cast<char *>(v2), attr_length_[0]);
+    for (size_t i = 1; i < attr_length_.size(); i++) {
+      if (new_null_bitmap.get_bit(attr_id_[i])) {
+        if (null_as_differnet)  // 这里认为NULL比其它值(包括NULL)都大，返回-1
+          return -1;
+        if (old_null_bitmap.get_bit(attr_id_[i])) {
+          continue;  // bitmap值为1，说明此字段为NULL, NULL和NULL相等
+        } else {
+          return -1;  // 这里认为NULL比其它值(不包括NULL)都大，返回-1
+        }
+      }
       switch (attr_type_[i]) {
         case INTS:
         case DATES: {
@@ -67,7 +79,6 @@ public:
           abort();
         }
       }
-
       if (rc != 0) {
         return rc;
       }
@@ -77,15 +88,18 @@ public:
   }
 
 private:
+  // 第一列为标记NULL的bitmap
+  std::vector<int> attr_id_;
   std::vector<AttrType> attr_type_;
   std::vector<int> attr_length_;
 };
 
 class KeyComparator {
 public:
-  void init(std::vector<AttrType> type, std::vector<int> length)
+  void init(bool unique, std::vector<int> id, std::vector<AttrType> type, std::vector<int> length)
   {
-    attr_comparator_.init(type, length);
+    unique_ = unique;
+    attr_comparator_.init(id, type, length);
   }
 
   const AttrComparator &attr_comparator() const
@@ -93,10 +107,10 @@ public:
     return attr_comparator_;
   }
 
-  int operator()(const char *v1, const char *v2) const
+  int operator()(const char *v1, const char *v2, bool null_as_different = false) const  // for null type
   {
-    int result = attr_comparator_(v1, v2);
-    if (result != 0) {
+    int result = attr_comparator_(v1, v2, null_as_different);  // for null type
+    if (unique_ || result != 0) {
       return result;
     }
 
@@ -106,6 +120,7 @@ public:
   }
 
 private:
+  bool unique_;
   AttrComparator attr_comparator_;
 };
 
@@ -197,12 +212,14 @@ struct IndexFileHeader {
     memset(this, 0, sizeof(IndexFileHeader));
     root_page = BP_INVALID_PAGE_NUM;
   }
+  bool unique;
   PageNum root_page;
   int32_t internal_max_size;
   int32_t leaf_max_size;
   int32_t key_length;  // attr length + sizeof(RID)
   int32_t attr_num;
-  int32_t attr_length[MAX_NUM];
+  int32_t attr_id[MAX_NUM];      // 标识该列在record中的位置
+  int32_t attr_length[MAX_NUM];  // 第一列为标记NULL的bitmap
   int32_t attr_offset[MAX_NUM];
   AttrType attr_type[MAX_NUM];
 
@@ -328,7 +345,8 @@ public:
    * 如果key已经存在，会设置found的值
    * NOTE: 当前lookup的实现效率非常低，你是否可以优化它?
    */
-  int lookup(const KeyComparator &comparator, const char *key, bool *found = nullptr) const;
+  int lookup(
+      const KeyComparator &comparator, const char *key, bool *found = nullptr, bool insert_opertion = false) const;
 
   void insert(int index, const char *key, const char *value);
   void remove(int index);
@@ -422,8 +440,8 @@ public:
    * 此函数创建一个名为fileName的索引。
    * attrType描述被索引属性的类型，attrLength描述被索引属性的长度
    */
-  RC create(const char *file_name, std::vector<AttrType> attr_type, std::vector<int> attr_length,
-      std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
+  RC create(const char *file_name, bool unique, std::vector<int> attr_id, std::vector<AttrType> attr_type,
+      std::vector<int> attr_length, std::vector<int> attr_offset, int internal_max_size = -1, int leaf_max_size = -1);
 
   /**
    * 打开名为fileName的索引文件。
