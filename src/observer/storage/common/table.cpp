@@ -926,26 +926,33 @@ RC Table::update_record(
     }
   }
 
-  // check null
-  for (size_t i = 0; i < records.size(); i++) {
-    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
-      if (field_nullable[c_idx]) {
-        if (record_field_is_null(records[i].data(), field_idx[c_idx]) && AttrType::NULLS == values[c_idx]->type) {
-          LOG_WARN("duplicate value");
-          return RC::RECORD_NOT_ALLOW_NULL;
-        }
-      }
-    }
-  }
-
   // make new record
   std::vector<char *> old_records_data;
   std::vector<char *> new_records_data;
   for (auto itor = records.begin(); itor != records.end(); itor++) {
+    // check null
+    bool duplicate = true;
+    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+      if (field_nullable[c_idx]) {
+        if (record_field_is_null(itor->data(), field_idx[c_idx])) {
+          if (AttrType::NULLS == values[c_idx]->type)
+            continue;
+          else
+            duplicate = false;
+        } else {
+          duplicate = false;
+        }
+      }
+    }
+    if (duplicate) {
+      // remove this record;
+      itor = --records.erase(itor);
+      continue;
+    }
+
     char *old_data = itor->data();
     char *new_data = new char[record_size];
     memcpy(new_data, old_data, record_size);
-
     for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
       rc = change_record_value(new_data, field_idx[c_idx], *values[c_idx]);
       if (RC::SUCCESS != rc) {

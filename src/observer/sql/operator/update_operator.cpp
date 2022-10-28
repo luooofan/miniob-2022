@@ -96,16 +96,16 @@ RC UpdateOperator::open()
             value_type);
         return RC::SCHEMA_FIELD_TYPE_MISMATCH;
       }
-      break;  // pass check
-    }
-    // check typecast
-    if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
-      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-          update_stmt_->table()->name(),
-          field_meta->name(),
-          field_type,
-          value_type);
-      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    } else {
+      // check typecast
+      if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
+        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+            update_stmt_->table()->name(),
+            field_meta->name(),
+            field_type,
+            value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
     }
 
     values.emplace_back(value);
