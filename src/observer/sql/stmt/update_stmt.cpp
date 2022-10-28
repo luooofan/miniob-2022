@@ -67,6 +67,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
       return RC::INVALID_ARGUMENT;
     }
 
+    const Expr *expr = &update.exprs[i];
     for (int j = 0; j < user_field_num; j++) {
       const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const char *field_name = field_meta->name();
@@ -76,9 +77,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
 
       field_exist = true;
 
-      const Expr *expr = &update.exprs[i];
       Expression *expression = nullptr;
-      // const Value *value = nullptr;
       const std::unordered_map<std::string, Table *> table_map;
       const std::vector<Table *> tables;
       if (ExpType::UNARY == expr->type) {
@@ -91,7 +90,6 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
           LOG_ERROR("UpdateStmt Create ValueExpr Failed. RC = %d:%s", rc, strrc(rc));
           return rc;
         }
-        // value = &u_expr->value;
       } else if (ExpType::SUBQUERY == expr->type) {
         // will check projects num
         RC rc = SubQueryExpression::create_expression(expr, table_map, tables, expression, CompOp::EQUAL_TO, db);

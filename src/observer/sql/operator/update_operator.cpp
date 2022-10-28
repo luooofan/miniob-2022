@@ -12,6 +12,7 @@ See the Mulan PSL v2 for more details. */
 // Created by ZhangCL on 2022/10/13.
 //
 
+#include "common/lang/defer.h"
 #include "common/log/log.h"
 #include "sql/executor/execute_stage.h"
 #include "sql/operator/update_operator.h"
@@ -54,6 +55,13 @@ RC UpdateOperator::open()
   // std::cout << "DO PREDICATE: comp : " << comp << std::endl;
   // remember to release it
   std::vector<const Value *> values;
+  DEFER([&]() {
+    for (auto value : values) {
+      if (nullptr != value) {
+        delete value;
+      }
+    }
+  });
   std::vector<Operator *> delete_opers;
 
   for (size_t i = 0; i < update_stmt_->exprs().size(); ++i) {
@@ -78,13 +86,9 @@ RC UpdateOperator::open()
       ((ValueExpr *)expr)->get_tuple_cell(cell);
     }
 
-    Value *value = new Value();
-    value->type = cell.attr_type();
-    value->data = (char *)cell.data();
-
     auto field_meta = update_stmt_->fields()[i];
     const AttrType field_type = field_meta->type();
-    const AttrType value_type = value->type;
+    const AttrType value_type = cell.attr_type();
 
     // check null first
     if (AttrType::NULLS == value_type) {
@@ -108,6 +112,9 @@ RC UpdateOperator::open()
       }
     }
 
+    Value *value = new Value();
+    value->type = cell.attr_type();
+    value->data = (char *)cell.data();
     values.emplace_back(value);
   }
 
