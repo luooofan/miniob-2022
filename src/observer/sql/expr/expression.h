@@ -424,6 +424,8 @@ public:
 
   RC get_value(const Tuple &tuple, TupleCell &final_cell) const override;
 
+  RC get_value(TupleCell &final_cell) const;
+
   void set_sub_query_stmt(SelectStmt *sub_stmt)
   {
     sub_stmt_ = sub_stmt;

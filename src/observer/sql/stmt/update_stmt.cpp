@@ -15,15 +15,17 @@ See the Mulan PSL v2 for more details. */
 #include "sql/stmt/update_stmt.h"
 #include "sql/stmt/filter_stmt.h"
 #include "common/log/log.h"
+#include "sql/stmt/select_stmt.h"
 #include "storage/common/db.h"
+#include "storage/common/field_meta.h"
 #include "storage/common/table.h"
 #include "util/typecast.h"
 
 // UpdateStmt::UpdateStmt(Table *table, Value *values, int value_amount)
 //     : table_(table), values_(values), value_amount_(value_amount)
-UpdateStmt::UpdateStmt(
-    Table *table, std::vector<const char *> attr_names, std::vector<const Value *> values, FilterStmt *filter_stmt)
-    : table_(table), attr_names_(attr_names), values_(values), filter_stmt_(filter_stmt)
+UpdateStmt::UpdateStmt(Table *table, std::vector<const char *> attr_names, std::vector<const Expression *> exprs,
+    std::vector<const FieldMeta *> fields, FilterStmt *filter_stmt)
+    : table_(table), attr_names_(attr_names), exprs_(exprs), fields_(fields), filter_stmt_(filter_stmt)
 {}
 
 UpdateStmt::~UpdateStmt()
@@ -51,10 +53,13 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
 
   bool field_exist = false;
   std::vector<const char *> attr_names;
-  std::vector<const Value *> values;
+  std::vector<const Expression *> expressions;
+  std::vector<const FieldMeta *> fields;
   const TableMeta &table_meta = table->table_meta();
   const int sys_field_num = table_meta.sys_field_num();
-  const int user_field_num = table_meta.field_num() - sys_field_num;
+  const int extra_field_num = table_meta.extra_filed_num();
+  const int user_field_num = table_meta.field_num() - sys_field_num - extra_field_num;
+
   for (size_t i = 0; i < update.attribute_num; i++) {
     const char *attr_name = update.attribute_names[i].name;
     if (nullptr == attr_name) {
@@ -62,39 +67,45 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
       return RC::INVALID_ARGUMENT;
     }
 
-    const Value *value = &update.values[i];
-    const AttrType value_type = value->type;
-    for (int i = 0; i < user_field_num; i++) {
-      const FieldMeta *field_meta = table_meta.field(i + sys_field_num);
+    for (int j = 0; j < user_field_num; j++) {
+      const FieldMeta *field_meta = table_meta.field(j + sys_field_num);
       const char *field_name = field_meta->name();
       if (0 != strcmp(field_name, attr_name)) {
         continue;
       }
 
       field_exist = true;
-      const AttrType field_type = field_meta->type();
-      // check null first
-      if (AttrType::NULLS == value_type) {
-        if (!field_meta->nullable()) {
-          LOG_WARN("field type mismatch. can not be null. table=%s, field=%s, field type=%d, value_type=%d",
-              table_name,
-              field_meta->name(),
-              field_type,
-              value_type);
-          return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+
+      const Expr *expr = &update.exprs[i];
+      Expression *expression = nullptr;
+      // const Value *value = nullptr;
+      const std::unordered_map<std::string, Table *> table_map;
+      const std::vector<Table *> tables;
+      if (ExpType::UNARY == expr->type) {
+        const UnaryExpr *u_expr = expr->uexp;
+        if (u_expr->is_attr) {
+          return RC::SQL_SYNTAX;
         }
-        break;  // pass check
-      }
-      // check typecast
-      if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
-        LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
-            table_name,
-            field_meta->name(),
-            field_type,
-            value_type);
-        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+        RC rc = ValueExpr::create_expression(expr, table_map, tables, expression);
+        if (RC::SUCCESS != rc) {
+          LOG_ERROR("UpdateStmt Create ValueExpr Failed. RC = %d:%s", rc, strrc(rc));
+          return rc;
+        }
+        // value = &u_expr->value;
+      } else if (ExpType::SUBQUERY == expr->type) {
+        // will check projects num
+        RC rc = SubQueryExpression::create_expression(expr, table_map, tables, expression, CompOp::EQUAL_TO, db);
+        if (RC::SUCCESS != rc) {
+          LOG_ERROR("UpdateStmt Create SubQueryExpression Failed. RC = %d:%s", rc, strrc(rc));
+          return rc;
+        }
+      } else {
+        return RC::SQL_SYNTAX;
       }
 
+      assert(nullptr != expression);
+      expressions.emplace_back(expression);
+      fields.emplace_back(field_meta);
       break;
     }
 
@@ -104,7 +115,6 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
     }
 
     attr_names.emplace_back(attr_name);
-    values.emplace_back(value);
   }
 
   // make filter
@@ -119,6 +129,29 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   }
 
   // everything alright
-  stmt = new UpdateStmt(table, attr_names, values, filter_stmt);
+  stmt = new UpdateStmt(table, attr_names, expressions, fields, filter_stmt);
   return RC::SUCCESS;
 }
+// const AttrType value_type = value->type;
+// const AttrType field_type = field_meta->type();
+// check null first
+// if (AttrType::NULLS == value_type) {
+//   if (!field_meta->nullable()) {
+//     LOG_WARN("field type mismatch. can not be null. table=%s, field=%s, field type=%d, value_type=%d",
+//         table_name,
+//         field_meta->name(),
+//         field_type,
+//         value_type);
+//     return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+//   }
+//   break;  // pass check
+// }
+// // check typecast
+// if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
+//   LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+//       table_name,
+//       field_meta->name(),
+//       field_type,
+//       value_type);
+//   return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+// }

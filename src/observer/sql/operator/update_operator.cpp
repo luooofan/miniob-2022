@@ -13,10 +13,12 @@ See the Mulan PSL v2 for more details. */
 //
 
 #include "common/log/log.h"
+#include "sql/executor/execute_stage.h"
 #include "sql/operator/update_operator.h"
 #include "storage/record/record.h"
 #include "storage/common/table.h"
 #include "sql/stmt/update_stmt.h"
+#include "util/typecast.h"
 
 RC UpdateOperator::open()
 {
@@ -24,6 +26,89 @@ RC UpdateOperator::open()
   if (children_.size() != 1) {
     LOG_WARN("update operator must has 1 child");
     return RC::INTERNAL;
+  }
+
+  // execute sub query firstly
+  auto get_cell_for_sub_query = [](const SubQueryExpression *expr, TupleCell &cell) {
+    expr->open_sub_query();
+    RC rc = expr->get_value(cell);
+    if (RC::RECORD_EOF == rc) {
+      // e.g. a = select a  -> a = null
+      cell.set_null();
+    } else if (RC::SUCCESS == rc) {
+      TupleCell tmp_cell;
+      if (RC::SUCCESS == (rc = expr->get_value(tmp_cell))) {
+        // e.g. a = select a  -> a = (1, 2, 3)
+        // std::cout << "Should not have rows more than 1" << std::endl;
+        expr->close_sub_query();
+        return RC::INTERNAL;
+      }
+    } else {
+      expr->close_sub_query();
+      return rc;
+    }
+    expr->close_sub_query();
+    return RC::SUCCESS;
+  };
+
+  // std::cout << "DO PREDICATE: comp : " << comp << std::endl;
+  // remember to release it
+  std::vector<const Value *> values;
+  std::vector<Operator *> delete_opers;
+
+  for (size_t i = 0; i < update_stmt_->exprs().size(); ++i) {
+    auto expr = update_stmt_->exprs()[i];
+    TupleCell cell;
+    if (ExprType::SUBQUERYTYPE == expr->type()) {
+      auto sub_query_expr = (SubQueryExpression *)expr;
+      const SelectStmt *sub_select = sub_query_expr->get_sub_query_stmt();
+      ProjectOperator *sub_project = nullptr;
+      if (RC::SUCCESS != (rc = ExecuteStage::gen_physical_plan(sub_select, sub_project, delete_opers))) {
+        return rc;
+      }
+      assert(nullptr != sub_project);
+      sub_query_expr->set_sub_query_top_oper(sub_project);
+
+      if (RC::SUCCESS != (rc = get_cell_for_sub_query((const SubQueryExpression *)expr, cell))) {
+        LOG_ERROR("Update get cell for sub_query failed. RC = %d:%s", rc, strrc(rc));
+        return rc;
+      }
+    } else {
+      assert(ExprType::VALUE == expr->type());
+      ((ValueExpr *)expr)->get_tuple_cell(cell);
+    }
+
+    Value *value = new Value();
+    value->type = cell.attr_type();
+    value->data = (char *)cell.data();
+
+    auto field_meta = update_stmt_->fields()[i];
+    const AttrType field_type = field_meta->type();
+    const AttrType value_type = value->type;
+
+    // check null first
+    if (AttrType::NULLS == value_type) {
+      if (!field_meta->nullable()) {
+        LOG_WARN("field type mismatch. can not be null. table=%s, field=%s, field type=%d, value_type=%d",
+            update_stmt_->table()->name(),
+            field_meta->name(),
+            field_type,
+            value_type);
+        return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+      }
+      break;  // pass check
+    }
+    // check typecast
+    if (field_type != value_type && type_cast_not_support(value_type, field_type)) {
+      LOG_WARN("field type mismatch. table=%s, field=%s, field type=%d, value_type=%d",
+          update_stmt_->table()->name(),
+          field_meta->name(),
+          field_type,
+          value_type);
+      return RC::SCHEMA_FIELD_TYPE_MISMATCH;
+    }
+
+    values.emplace_back(value);
   }
 
   Operator *child = children_[0];
@@ -52,7 +137,7 @@ RC UpdateOperator::open()
   }
 
   Table *table = update_stmt_->table();
-  rc = table->update_record(trx_, update_stmt_->attr_names(), old_records, update_stmt_->values());
+  rc = table->update_record(trx_, update_stmt_->attr_names(), old_records, values);
   if (rc != RC::SUCCESS) {
     LOG_WARN("failed to update records: %s", strrc(rc));
   }

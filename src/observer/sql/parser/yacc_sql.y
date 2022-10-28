@@ -855,12 +855,23 @@ update_options:
 		}
 update_option:
 		ID EQ value {
-			Value *value = &CONTEXT->values[0];
-			updates_append_attribute(&CONTEXT->ssql->sstr.update, $1, value);
+    	Expr *expr = malloc(sizeof(Expr));
+      UnaryExpr* u_expr = malloc(sizeof(UnaryExpr));
+      unary_expr_init_value(u_expr, &CONTEXT->values[0]);
+      expr_init_unary(expr, u_expr);
+
+			// Value *value = &CONTEXT->values[0];
+			updates_append_attribute(&CONTEXT->ssql->sstr.update, $1, expr);
 			//临时变量清零
 			memset(CONTEXT->values, 0, sizeof(CONTEXT->values));
       CONTEXT->value_length=0;
 		}
+    | ID EQ sub_select {
+			updates_append_attribute(&CONTEXT->ssql->sstr.update, $1, $3);
+			//临时变量清零
+			memset(CONTEXT->values, 0, sizeof(CONTEXT->values));
+      CONTEXT->value_length=0;
+    }
     ;
 
 select:				/*  select 语句的语法解析树*/
