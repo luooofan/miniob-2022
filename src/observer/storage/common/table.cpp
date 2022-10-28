@@ -942,6 +942,8 @@ RC Table::update_record(
         } else {
           duplicate = false;
         }
+      } else {
+        duplicate = false;
       }
     }
     if (duplicate) {
