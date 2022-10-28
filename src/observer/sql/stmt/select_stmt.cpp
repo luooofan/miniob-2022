@@ -33,6 +33,11 @@ See the Mulan PSL v2 for more details. */
 
 SelectStmt::~SelectStmt()
 {
+  if (nullptr != inner_join_filter_stmt_) {
+    delete inner_join_filter_stmt_;
+    inner_join_filter_stmt_ = nullptr;
+  }
+
   if (nullptr != filter_stmt_) {
     delete filter_stmt_;
     filter_stmt_ = nullptr;
@@ -203,12 +208,22 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
   std::unordered_map<std::string, Table *> temp_table_map = table_map;
   temp_table_map.insert(parent_table_map.begin(), parent_table_map.end());
 
-  // create filter statement in `where` statement
-  FilterStmt *filter_stmt = nullptr;
-  DEFER_WHEN_NOT_NULL(filter_stmt);
+  // create filter statement in `inner join on` statement
+  FilterStmt *inner_join_filter_stmt = nullptr;
+  DEFER_WHEN_NOT_NULL(inner_join_filter_stmt);
   if (0 != select_sql.condition_num) {
     rc = FilterStmt::create(
-        db, default_table, &temp_table_map, select_sql.conditions, select_sql.condition_num, filter_stmt);
+        db, default_table, &temp_table_map, select_sql.conditions, select_sql.condition_num, inner_join_filter_stmt);
+    if (rc != RC::SUCCESS) {
+      LOG_WARN("cannot construct inner join filter stmt");
+      return rc;
+    }
+  }
+
+  FilterStmt *filter_stmt = nullptr;
+  DEFER_WHEN_NOT_NULL(filter_stmt);
+  if (0 != select_sql.has_where) {
+    rc = FilterStmt::create(db, default_table, &temp_table_map, &select_sql.where_condition, 1, filter_stmt);
     if (rc != RC::SUCCESS) {
       LOG_WARN("cannot construct filter stmt");
       return rc;
@@ -259,6 +274,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
   select_stmt->tables_.swap(tables);
   select_stmt->projects_.swap(projects);
   select_stmt->filter_stmt_ = filter_stmt;
+  select_stmt->inner_join_filter_stmt_ = inner_join_filter_stmt;
   select_stmt->having_stmt_ = having_stmt;
   select_stmt->orderby_stmt_ = orderby_stmt;
   select_stmt->orderby_stmt_for_groupby_ = orderby_stmt_for_groupby;

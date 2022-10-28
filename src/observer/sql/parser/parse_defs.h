@@ -45,12 +45,14 @@ typedef enum {
   NOT_IN,       // sub_query NOT IN  11
   EXISTS_OP,    // sub_query EXISTS  12
   NOT_EXISTS,   // sub_query NOT EXISTS  13
+  AND_OP,       // condition and condition 14
+  OR_OP,        // condition or condition 15
   NO_OP
 } CompOp;
 
 typedef enum { ADD_OP, SUB_OP, MUL_OP, DIV_OP, EXP_OP_NUM } ExpOp;
 typedef enum { MAX, MIN, SUM, AVG, COUNT, AGGR_FUNC_TYPE_NUM } AggrFuncType;
-typedef enum { UNARY, BINARY, FUNC, AGGRFUNC, SUBQUERY, SUBLIST, EXP_TYPE_NUM } ExpType;
+typedef enum { UNARY, BINARY, COND, FUNC, AGGRFUNC, SUBQUERY, SUBLIST, EXP_TYPE_NUM } ExpType;
 typedef enum { FUNC_LENGTH, FUNC_ROUND, FUNC_DATE_FORMAT, FUNC_TYPE_NUM } FuncType;
 typedef enum { SUB_IN, SUB_NOT_IN, SUB_EXISTS, SUB_NOT_EXISTS, SUB_NORMAL, SUB_TYPE_NUM } SubQueryType;
 
@@ -73,6 +75,7 @@ typedef struct _FuncExpr FuncExpr;
 typedef struct _AggrFuncExpr AggrFuncExpr;
 typedef struct _SubQueryExpr SubQueryExpr;
 typedef struct _ListExpr ListExpr;
+typedef struct _Condition Condition;
 
 typedef struct _Expr {
   ExpType type;
@@ -82,6 +85,7 @@ typedef struct _Expr {
   AggrFuncExpr *afexp;
   SubQueryExpr *sexp;
   ListExpr *lexp;
+  Condition *cexp;
   int with_brace;
   char *alias;
 } Expr;
@@ -134,8 +138,10 @@ typedef struct {
   RelAttr attributes[MAX_NUM];    // attrs in Select clause
   size_t relation_num;            // Length of relations in Fro clause
   Relation relations[MAX_NUM];    // relations in From clause
-  size_t condition_num;           // Length of conditions in Where clause
-  Condition conditions[MAX_NUM];  // conditions in Where clause
+  size_t condition_num;           // Length of conditions in inner join on clause
+  Condition conditions[MAX_NUM];  // conditions in inner join on clause
+  int has_where;                  // whether has where clause or not
+  Condition where_condition;      // conditions in Where clause
   size_t project_num;             // Length of select clauses
   ProjectCol projects[MAX_NUM];   // project_col in select clause
   size_t orderby_num;             // Length of orderby
@@ -153,7 +159,7 @@ typedef struct _SubQueryExpr {
 
 // sub_select list
 typedef struct _ListExpr {
-  int list_length;
+  size_t list_length;
   Value list[MAX_NUM];
 } ListExpr;
 
@@ -309,6 +315,7 @@ void expr_init_aggr_func(Expr *expr, AggrFuncExpr *f_expr);
 void expr_init_func(Expr *expr, FuncExpr *f_expr);
 void expr_init_unary(Expr *expr, UnaryExpr *u_expr);
 void expr_init_binary(Expr *expr, BinaryExpr *b_expr);
+void expr_init_condition(Expr *expr, Condition *c_expr);
 void expr_set_with_brace(Expr *expr);
 void expr_destroy(Expr *expr);
 
@@ -346,6 +353,7 @@ void selects_append_conditions(Selects *selects, Condition conditions[], size_t 
 void selects_append_orderbys(Selects *selects, OrderBy orderbys[], size_t orderby_num);
 void selects_append_groupbys(Selects *selects, GroupBy groupbys[], size_t groupby_num);
 void selects_append_havings(Selects *selects, Condition conditions[], size_t condition_num);
+void selects_set_where_condition(Selects *selects, Expr *expr);
 void selects_destroy(Selects *selects);
 
 // void inserts_init(Inserts *inserts, const char *relation_name, Value values[], size_t value_num);

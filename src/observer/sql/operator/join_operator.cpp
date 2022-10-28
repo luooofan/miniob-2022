@@ -9,10 +9,12 @@ RC JoinOperator::open()
   if (RC::SUCCESS != (rc = left_->open())) {
     rc = RC::INTERNAL;
     LOG_WARN("JoinOperater child left open failed!");
+    return rc;
   }
   if (RC::SUCCESS != (rc = right_->open())) {
     rc = RC::INTERNAL;
     LOG_WARN("JoinOperater child right open failed!");
+    return rc;
   }
   tuple_.init(left_->current_tuple(), right_->current_tuple());
   LOG_INFO("Open JoinOperater SUCCESS. There are %d filter units.", filter_units_.size());

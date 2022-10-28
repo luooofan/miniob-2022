@@ -14,6 +14,7 @@ See the Mulan PSL v2 for more details. */
 
 #pragma once
 
+#include <cassert>
 #include <vector>
 #include <unordered_map>
 #include "rc.h"
@@ -37,6 +38,14 @@ public:
     if (right_) {
       delete right_;
       right_ = nullptr;
+    }
+    if (left_unit_) {
+      delete left_unit_;
+      left_unit_ = nullptr;
+    }
+    if (right_unit_) {
+      delete right_unit_;
+      right_unit_ = nullptr;
     }
   }
 
@@ -66,11 +75,35 @@ public:
   {
     return right_;
   }
+  void set_left_unit(FilterUnit *unit)
+  {
+    assert(CompOp::AND_OP == comp_ || CompOp::OR_OP == comp_);
+    left_unit_ = unit;
+  }
+  void set_right_unit(FilterUnit *unit)
+  {
+    assert(CompOp::AND_OP == comp_ || CompOp::OR_OP == comp_);
+    right_unit_ = unit;
+  }
+  FilterUnit *left_unit() const
+  {
+    assert(CompOp::AND_OP == comp_ || CompOp::OR_OP == comp_);
+    return left_unit_;
+  }
+  FilterUnit *right_unit() const
+  {
+    assert(CompOp::AND_OP == comp_ || CompOp::OR_OP == comp_);
+    return right_unit_;
+  }
 
 private:
   CompOp comp_ = NO_OP;
   Expression *left_ = nullptr;
   Expression *right_ = nullptr;
+
+  // if comp is and / or
+  FilterUnit *left_unit_ = nullptr;
+  FilterUnit *right_unit_ = nullptr;
 };
 
 class FilterStmt {
