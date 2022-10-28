@@ -51,7 +51,6 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
     return RC::SCHEMA_TABLE_NOT_EXIST;
   }
 
-  bool field_exist = false;
   std::vector<const char *> attr_names;
   std::vector<const Expression *> expressions;
   std::vector<const FieldMeta *> fields;
@@ -61,6 +60,7 @@ RC UpdateStmt::create(Db *db, const Updates &update, Stmt *&stmt)
   const int user_field_num = table_meta.field_num() - sys_field_num - extra_field_num;
 
   for (size_t i = 0; i < update.attribute_num; i++) {
+    bool field_exist = false;
     const char *attr_name = update.attribute_names[i].name;
     if (nullptr == attr_name) {
       LOG_WARN("invalid argument. attribute_name=%p", attr_name);

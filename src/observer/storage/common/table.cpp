@@ -933,7 +933,7 @@ RC Table::update_record(
   for (auto itor = records.begin(); itor != records.end(); itor++) {
     // check null
     bool duplicate = true;
-    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+    for (size_t c_idx = 0; c_idx < field_idx.size(); c_idx++) {
       if (field_nullable[c_idx]) {
         if (record_field_is_null(itor->data(), field_idx[c_idx])) {
           if (AttrType::NULLS == values[c_idx]->type)
@@ -957,7 +957,7 @@ RC Table::update_record(
     char *old_data = itor->data();
     char *new_data = new char[record_size];
     memcpy(new_data, old_data, record_size);
-    for (size_t c_idx = 0; c_idx < attr_names.size(); c_idx++) {
+    for (size_t c_idx = 0; c_idx < field_idx.size(); c_idx++) {
       rc = change_record_value(new_data, field_idx[c_idx], *values[c_idx]);
       if (RC::SUCCESS != rc) {
         LOG_ERROR("Change Record Value Failed. RC = %d", rc);
