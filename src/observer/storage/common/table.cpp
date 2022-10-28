@@ -488,6 +488,7 @@ RC Table::change_record_value(char *&record, int idx, const Value &value) const
     memset(record + field->offset(), 0, field->len());
     return RC::SUCCESS;
   }
+  bitmap.clear_bit(idx);
 
   // do typecast
   void *tmp_data = nullptr;
@@ -946,6 +947,7 @@ RC Table::update_record(
         duplicate = false;
       }
     }
+    std::cout << "IS duplicate: " << duplicate << std::endl;
     if (duplicate) {
       // remove this record;
       itor = --records.erase(itor);
