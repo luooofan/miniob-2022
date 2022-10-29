@@ -30,6 +30,11 @@ class ExecuteStage : public common::Stage {
 public:
   ~ExecuteStage();
   static Stage *make_stage(const std::string &tag);
+  static RC gen_join_operator(
+      const SelectStmt *select_stmt, Operator *&result_op, std::vector<Operator *> &delete_opers);
+  static RC gen_physical_plan(
+      const SelectStmt *select_stmt, ProjectOperator *&op, std::vector<Operator *> &delete_opers);
+  static RC gen_physical_plan_for_subquery(const FilterUnit *filter, std::vector<Operator *> &delete_opers);
 
 protected:
   // common function
@@ -56,11 +61,6 @@ protected:
   RC do_begin(SQLStageEvent *sql_event);
   RC do_commit(SQLStageEvent *sql_event);
   RC do_clog_sync(SQLStageEvent *sql_event);
-  static RC gen_join_operator(
-      const SelectStmt *select_stmt, Operator *&result_op, std::vector<Operator *> &delete_opers);
-  static RC gen_physical_plan(
-      const SelectStmt *select_stmt, ProjectOperator *&op, std::vector<Operator *> &delete_opers);
-  static RC gen_physical_plan_for_subquery(const FilterUnit *filter, std::vector<Operator *> &delete_opers);
 
 protected:
 private:

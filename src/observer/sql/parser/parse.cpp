@@ -646,10 +646,10 @@ void updates_init(Updates *updates, const char *relation_name, Condition conditi
   }
   updates->condition_num = condition_num;
 }
-void updates_append_attribute(Updates *updates, const char *attribute_name, Value *value)
+void updates_append_attribute(Updates *updates, const char *attribute_name, Expr *expr)
 {
   updates->attribute_names[updates->attribute_num].name = strdup(attribute_name);
-  updates->values[updates->attribute_num] = *value;
+  updates->exprs[updates->attribute_num] = *expr;
   updates->attribute_num++;
 }
 void updates_destroy(Updates *updates)

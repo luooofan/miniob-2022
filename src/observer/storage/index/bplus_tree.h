@@ -62,6 +62,8 @@ public:
         } else {
           return -1;  // 这里认为NULL比其它值(不包括NULL)都大，返回-1
         }
+      } else if (old_null_bitmap.get_bit(attr_id_[i])) {
+        return 1;
       }
       switch (attr_type_[i]) {
         case INTS:

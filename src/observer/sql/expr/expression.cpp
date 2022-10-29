@@ -493,10 +493,8 @@ RC SubQueryExpression::close_sub_query() const
   assert(nullptr != sub_top_oper_);
   return sub_top_oper_->close();
 }
-RC SubQueryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) const
+RC SubQueryExpression::get_value(TupleCell &final_cell) const
 {
-  assert(nullptr != sub_top_oper_);
-  sub_top_oper_->set_parent_tuple(&tuple);  // set parent tuple
   RC rc = sub_top_oper_->next();
   if (RC::RECORD_EOF == rc) {
     final_cell.set_null();
@@ -511,6 +509,12 @@ RC SubQueryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) cons
   }
   rc = child_tuple->cell_at(0, final_cell);  // only need the first cell
   return rc;
+}
+RC SubQueryExpression::get_value(const Tuple &tuple, TupleCell &final_cell) const
+{
+  assert(nullptr != sub_top_oper_);
+  sub_top_oper_->set_parent_tuple(&tuple);  // set parent tuple
+  return get_value(final_cell);
 }
 
 RC Expression::create_expression(const Expr *expr, const std::unordered_map<std::string, Table *> &table_map,
