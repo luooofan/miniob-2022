@@ -26,8 +26,8 @@ class Expression;
 class UpdateStmt : public Stmt {
 public:
   UpdateStmt() = default;
-  UpdateStmt(Table *table, std::vector<const char *> attr_names, std::vector<const Expression *> exprs,
-      std::vector<const FieldMeta *> fields, FilterStmt *filter_stmt);
+  UpdateStmt(Table *table, std::vector<const char *> &attr_names, std::vector<const Expression *> &exprs,
+      std::vector<const FieldMeta *> &fields, FilterStmt *filter_stmt);
   ~UpdateStmt() override;
 
   StmtType type() const override

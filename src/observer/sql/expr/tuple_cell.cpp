@@ -175,10 +175,10 @@ int TupleCell::compare(const TupleCell &other) const
       }
     }
   } else if (this->attr_type_ == INTS && other.attr_type_ == FLOATS) {
-    float this_data = *(int *)data_;
+    float this_data = (float)*(int *)data_;
     return compare_float(&this_data, other.data_);
   } else if (this->attr_type_ == FLOATS && other.attr_type_ == INTS) {
-    float other_data = *(int *)other.data_;
+    float other_data = (float)*(int *)other.data_;
     return compare_float(data_, &other_data);
   }
   // for compare.

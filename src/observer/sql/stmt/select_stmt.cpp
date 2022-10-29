@@ -123,7 +123,7 @@ RC SelectStmt::create(Db *db, const Selects &select_sql, const std::vector<Table
   // collect query fields in `select` statement
   // TODO(wbj) check aggrfunc fields
   std::vector<Expression *> projects;
-  for (int i = select_sql.project_num - 1; i >= 0; i--) {
+  for (int i = (int)select_sql.project_num - 1; i >= 0; i--) {
     const ProjectCol &project_col = select_sql.projects[i];
     // only *
     if (common::is_blank(project_col.relation_name) && project_col.is_star) {

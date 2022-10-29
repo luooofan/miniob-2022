@@ -23,8 +23,8 @@ See the Mulan PSL v2 for more details. */
 
 // UpdateStmt::UpdateStmt(Table *table, Value *values, int value_amount)
 //     : table_(table), values_(values), value_amount_(value_amount)
-UpdateStmt::UpdateStmt(Table *table, std::vector<const char *> attr_names, std::vector<const Expression *> exprs,
-    std::vector<const FieldMeta *> fields, FilterStmt *filter_stmt)
+UpdateStmt::UpdateStmt(Table *table, std::vector<const char *> &attr_names, std::vector<const Expression *> &exprs,
+    std::vector<const FieldMeta *> &fields, FilterStmt *filter_stmt)
     : table_(table), attr_names_(attr_names), exprs_(exprs), fields_(fields), filter_stmt_(filter_stmt)
 {}
 

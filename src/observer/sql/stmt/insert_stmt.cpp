@@ -19,7 +19,7 @@ See the Mulan PSL v2 for more details. */
 #include "storage/common/table.h"
 #include "util/typecast.h"
 
-InsertStmt::InsertStmt(Table *table, std::vector<const Value *> rows, int row_amount, int value_amount)
+InsertStmt::InsertStmt(Table *table, std::vector<const Value *> &rows, int row_amount, int value_amount)
     : table_(table), row_amount_(row_amount), value_amount_(value_amount), rows_(rows)
 {}
 

@@ -277,9 +277,7 @@ def main():
         tmpdir = tempfile.mkdtemp()
 
     # Build up a big regexy filter from all command line arguments.
-    print(args.files)
     file_name_re = re.compile('|'.join(args.files))
-    print(args.files, file_name_re)
 
     return_code = 0
     try:
