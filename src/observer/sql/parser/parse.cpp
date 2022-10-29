@@ -636,12 +636,9 @@ void deletes_destroy(Deletes *deletes)
   deletes->relation_name = nullptr;
 }
 
-void updates_init(Updates *updates, const char *relation_name, const char *attribute_name, Value *value,
-    Condition conditions[], size_t condition_num)
+void updates_init(Updates *updates, const char *relation_name, Condition conditions[], size_t condition_num)
 {
   updates->relation_name = strdup(relation_name);
-  updates->attribute_name = strdup(attribute_name);
-  updates->value = *value;
 
   assert(condition_num <= sizeof(updates->conditions) / sizeof(updates->conditions[0]));
   for (size_t i = 0; i < condition_num; i++) {
@@ -649,20 +646,26 @@ void updates_init(Updates *updates, const char *relation_name, const char *attri
   }
   updates->condition_num = condition_num;
 }
-
+void updates_append_attribute(Updates *updates, const char *attribute_name, Value *value)
+{
+  updates->attribute_names[updates->attribute_num].name = strdup(attribute_name);
+  updates->values[updates->attribute_num] = *value;
+  updates->attribute_num++;
+}
 void updates_destroy(Updates *updates)
 {
   free(updates->relation_name);
-  free(updates->attribute_name);
   updates->relation_name = nullptr;
-  updates->attribute_name = nullptr;
 
-  value_destroy(&updates->value);
-
+  for (size_t i = 0; i < updates->attribute_num; i++) {
+    attr_info_destroy(&updates->attribute_names[i]);
+    value_destroy(&updates->values[i]);
+  }
   for (size_t i = 0; i < updates->condition_num; i++) {
     condition_destroy(&updates->conditions[i]);
   }
   updates->condition_num = 0;
+  updates->attribute_num = 0;
 }
 
 void create_table_append_attribute(CreateTable *create_table, AttrInfo *attr_info)

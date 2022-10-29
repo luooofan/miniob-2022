@@ -42,7 +42,7 @@ RC TableMeta::init_sys_fields()
 {
   sys_fields_.reserve(1);
   FieldMeta field_meta;
-  RC rc = field_meta.init(Trx::trx_field_name(), Trx::trx_field_type(), 0, Trx::trx_field_len(), false, false);
+  RC rc = field_meta.init(0, Trx::trx_field_name(), Trx::trx_field_type(), 0, Trx::trx_field_len(), false, false);
   if (rc != RC::SUCCESS) {
     LOG_ERROR("Failed to init trx field. rc = %d:%s", rc, strrc(rc));
     return rc;
@@ -84,8 +84,13 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   for (int i = 0; i < field_num; i++) {
     const AttrInfo &attr_info = attributes[i];
-    rc = fields_[i + sys_fields_.size()].init(
-        attr_info.name, attr_info.type, field_offset, attr_info.length, static_cast<bool>(attr_info.nullable), true);
+    rc = fields_[i + sys_fields_.size()].init(i + sys_fields_.size(),
+        attr_info.name,
+        attr_info.type,
+        field_offset,
+        attr_info.length,
+        static_cast<bool>(attr_info.nullable),
+        true);
     if (rc != RC::SUCCESS) {
       LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, attr_info.name);
       return rc;
@@ -96,7 +101,8 @@ RC TableMeta::init(const char *name, int field_num, const AttrInfo attributes[])
 
   // put __null field end of record
   size_t null_field_len = (field_num + sys_fields_.size() - 1) / 8 + 1;  // the length contain sys fields
-  rc = fields_[sys_fields_.size() + field_num].init("__null", CHARS, field_offset, null_field_len, false, false);
+  rc = fields_[sys_fields_.size() + field_num].init(
+      field_num + sys_fields_.size(), "__null", CHARS, field_offset, null_field_len, false, false);
   if (RC::SUCCESS != rc) {
     LOG_ERROR("Failed to init field meta. table name=%s, field name: %s", name, "__null");
     return rc;
@@ -184,11 +190,6 @@ const IndexMeta *TableMeta::index(const char *name) const
 
 const IndexMeta *TableMeta::find_index_by_field(const char *field) const
 {
-  // for (const IndexMeta &index : indexes_) {
-  //   if (0 == strcmp(index.field(), field)) {
-  //     return &index;
-  //   }
-  // }
   std::string field_name = field;
   std::vector<std::string> fields;
   fields.push_back(field_name);

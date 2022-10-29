@@ -24,12 +24,7 @@ RC InsertOperator::open()
   int row_amount = insert_stmt_->row_amount();
   int value_amount = insert_stmt_->value_amount();
 
-  if (row_amount > 1) {
-    rc = table->insert_record(trx_, value_amount, insert_stmt_->rows());
-  } else {
-    rc = table->insert_record(trx_, value_amount, insert_stmt_->rows()->at(0).values);
-  }
-
+  rc = table->insert_record(trx_, row_amount, value_amount, insert_stmt_->rows());
   if (RC::SUCCESS != rc) {
     LOG_WARN("insert record failed");
   }

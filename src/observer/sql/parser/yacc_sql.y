@@ -839,16 +839,30 @@ delete:		/*  delete 语句的语法解析树*/
 			CONTEXT->condition_length = 0;	
     }
     ;
+
 update:			/*  update 语句的语法解析树*/
-    UPDATE ID SET ID EQ value where SEMICOLON
+    UPDATE ID SET update_option update_options where SEMICOLON
 		{
-			CONTEXT->ssql->flag = SCF_UPDATE;//"update";
-			Value *value = &CONTEXT->values[0];
-			updates_init(&CONTEXT->ssql->sstr.update, $2, $4, value, 
+			CONTEXT->ssql->flag = SCF_UPDATE;		//"update";
+			updates_init(&CONTEXT->ssql->sstr.update, $2, 
 					CONTEXT->conditions, CONTEXT->condition_length);
 			CONTEXT->condition_length = 0;
 		}
+update_options:
+		/* EMPTY */
+		|COMMA update_option update_options {
+			// Do Nothing
+		}
+update_option:
+		ID EQ value {
+			Value *value = &CONTEXT->values[0];
+			updates_append_attribute(&CONTEXT->ssql->sstr.update, $1, value);
+			//临时变量清零
+			memset(CONTEXT->values, 0, sizeof(CONTEXT->values));
+      CONTEXT->value_length=0;
+		}
     ;
+
 select:				/*  select 语句的语法解析树*/
     SELECT select_attr SEMICOLON {
 			selects_append_projects(&CONTEXT->ssql->sstr.selection, CONTEXT->projects, CONTEXT->project_length);

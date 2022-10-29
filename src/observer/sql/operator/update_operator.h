@@ -34,13 +34,8 @@ public:
   {
     return nullptr;
   }
-  int row_num()
-  {
-    return row_num_;
-  }
 
 private:
-  int row_num_ = 0;
   UpdateStmt *update_stmt_ = nullptr;
   Trx *trx_ = nullptr;
 };

@@ -374,6 +374,7 @@ IndexScanOperator *try_to_create_index_scan_operator(const FilterUnits &filter_u
   TupleCell value;
   right_value_expr.get_tuple_cell(value);
 
+  // left是field, right是value
   const TupleCell *left_cell = nullptr;
   const TupleCell *right_cell = nullptr;
   bool left_inclusive = false;
@@ -942,9 +943,9 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   Stmt *stmt = sql_event->stmt();
   SessionEvent *session_event = sql_event->session_event();
   Session *session = session_event->session();
-  // Db *db = session->get_current_db();
+  Db *db = session->get_current_db();
   Trx *trx = session->current_trx();
-  // CLogManager *clog_manager = db->get_clog_manager();
+  CLogManager *clog_manager = db->get_clog_manager();
 
   if (stmt == nullptr) {
     LOG_WARN("cannot find statement");
@@ -962,11 +963,25 @@ RC ExecuteStage::do_update(SQLStageEvent *sql_event)
   if (rc != RC::SUCCESS) {
     session_event->set_response("FAILURE\n");
   } else {
-    session_event->set_response("SUCCESS\n");
+    if (!session->is_trx_multi_operation_mode()) {
+      CLogRecord *clog_record = nullptr;
+      rc = clog_manager->clog_gen_record(CLogType::REDO_MTR_COMMIT, trx->get_current_id(), clog_record);
+      if (rc != RC::SUCCESS || clog_record == nullptr) {
+        session_event->set_response("FAILURE\n");
+        return rc;
+      }
 
-    // TODO trx_multi_operation_mode
+      rc = clog_manager->clog_append_record(clog_record);
+      if (rc != RC::SUCCESS) {
+        session_event->set_response("FAILURE\n");
+        return rc;
+      }
 
-    LOG_INFO("Successfully update %d rows", update_oper.row_num());
+      trx->next_current_id();
+      session_event->set_response("SUCCESS\n");
+    } else {
+      session_event->set_response("SUCCESS\n");
+    }
   }
 
   return rc;

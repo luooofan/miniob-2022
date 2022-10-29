@@ -24,8 +24,7 @@ class Db;
 class InsertStmt : public Stmt {
 public:
   InsertStmt() = default;
-  // InsertStmt(Table *table, const Value *values, int value_amount);
-  InsertStmt(Table *table, std::vector<Row> rows, int value_amount);
+  InsertStmt(Table *table, std::vector<const Value *> rows, int row_amount, int value_amount);
 
   StmtType type() const override
   {
@@ -40,13 +39,9 @@ public:
   {
     return table_;
   }
-  // const Value *values() const
-  // {
-  //   return values_;
-  // }
-  std::vector<Row> *rows()
+  std::vector<const Value *> &rows()
   {
-    return &rows_;
+    return rows_;
   }
   int value_amount() const
   {
@@ -54,12 +49,12 @@ public:
   }
   int row_amount() const
   {
-    return rows_.size();
+    return row_amount_;
   }
 
 private:
   Table *table_ = nullptr;
-  // const Value *values_ = nullptr;
-  std::vector<Row> rows_;
+  int row_amount_ = 0;
   int value_amount_ = 0;
+  std::vector<const Value *> rows_;
 };

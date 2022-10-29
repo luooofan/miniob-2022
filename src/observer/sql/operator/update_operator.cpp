@@ -33,7 +33,7 @@ RC UpdateOperator::open()
     return rc;
   }
 
-  Table *table = update_stmt_->table();
+  std::vector<Record> old_records;
   while (RC::SUCCESS == (rc = child->next())) {
     Tuple *tuple = child->current_tuple();
     if (nullptr == tuple) {
@@ -43,25 +43,21 @@ RC UpdateOperator::open()
     }
 
     RowTuple *row_tuple = static_cast<RowTuple *>(tuple);
-    Record &record = row_tuple->record();
-    rc = table->update_record(trx_, update_stmt_->attr_name(), &record, update_stmt_->values());
-    if (rc != RC::SUCCESS) {
-      if (rc == RC::RECORD_DUPLICATE_KEY) {
-        LOG_WARN("same value, not need to update");
-        continue;
-      } else {
-        LOG_WARN("failed to update record: %s", strrc(rc));
-        return rc;
-      }
-    }
-    row_num_++;
+    Record record = row_tuple->record();
+    old_records.emplace_back(record);
   }
   if (RC::RECORD_EOF != rc) {
-    LOG_WARN("update failed!");
+    LOG_WARN("get record failed!");
     return rc;
   }
 
-  return RC::SUCCESS;
+  Table *table = update_stmt_->table();
+  rc = table->update_record(trx_, update_stmt_->attr_names(), old_records, update_stmt_->values());
+  if (rc != RC::SUCCESS) {
+    LOG_WARN("failed to update records: %s", strrc(rc));
+  }
+
+  return rc;
 }
 
 RC UpdateOperator::next()
