@@ -1,3 +1,7 @@
+**比赛官网**：[Oceanbase数据库大赛-分布式数据库](https://open.oceanbase.com/competition/index)
+
+**初赛总结**：[Summary · Issue #25 · luooofan/miniob-2022](https://github.com/luooofan/miniob-2022/issues/25)
+
 # 介绍
 miniob 是 OceanBase 与华中科技大学联合开发的、面向"零"基础同学的数据库入门实践工具。
 miniob 设计的目标是让同学们快速了解数据库并深入学习数据库内核，期望通过相关训练之后，能够对数据库内核各个模块的功能及其关联有所了解，并能够在
